@@ -35,7 +35,7 @@ The answer must be stronger than:
 The desired claim is:
 
 - the user request is represented as a SpecGraph node;
-- the feature has a declared FeaturePassport;
+- the feature has a declared Feature Passport;
 - implementation commits are linked to the feature;
 - build artifacts include those commits and have provenance;
 - the artifacts were released or deployed to production;
@@ -50,7 +50,7 @@ notes, or merged pull requests as proof that a feature worked for users.
 
 SpecGraph should evaluate typed evidence:
 
-- FeaturePassport declares what must be proven.
+- Feature Passport declares what must be proven.
 - Evidence claims state the proof target.
 - Observations report what happened.
 - Attestations bind trusted delivery systems to artifacts or deployments.
@@ -64,7 +64,7 @@ dashboard, SDK design, or runtime profiling mechanism.
 
 ```text
 SpecGraph request / spec node
-  -> FeaturePassport
+  -> Feature Passport
   -> pull request / commit
   -> build artifact / app binary / container image
   -> release / deployment
@@ -90,7 +90,7 @@ attestations, and receipts.
 
 ## Terminology
 
-### FeaturePassport
+### Feature Passport
 
 A machine-readable contract that declares a feature's identity, origin,
 implementation links, delivery expectations, required runtime probes, privacy
@@ -168,13 +168,13 @@ The phrase "commit reached production" requires at least L4.
 
 The phrase "feature worked for users" requires L7 or L8.
 
-## FeaturePassport Shape
+## Feature Passport Shape
 
 The first schema should follow SpecGraph artifact conventions rather than
 Kubernetes-style `apiVersion` / `kind` fields.
 
 This is a provisional convention decision for this repository. A future 0AL-wide
-declaration profile should align FeaturePassport, Agent Passport, and related
+declaration profile should align Feature Passport, Agent Passport, and related
 declarative artifacts on a shared set of top-level identity keys. The important
 requirement is not the exact spelling of `artifact_kind` versus `kind`, but that
 all passports remain machine-discoverable, versioned, and schema-addressable.
@@ -269,7 +269,7 @@ signature:
   value: "base64-signature"
 ```
 
-### FeaturePassport Field Contract
+### Feature Passport Field Contract
 
 The first normative schema should preserve this field boundary:
 
@@ -293,7 +293,7 @@ The first normative schema should preserve this field boundary:
 
 ### Versioning Semantics
 
-FeaturePassport uses three separate version axes:
+Feature Passport uses three separate version axes:
 
 - RFC version: version of this architecture document, such as `FP-RFC-0001`
   `0.1.0`.
@@ -384,7 +384,7 @@ Conditional fields:
 deployments. The recommended baseline is keyed hashing such as HMAC with a
 deployment-specific secret and an explicit salt rotation policy. Raw user
 identifiers, emails, device advertising identifiers, or cross-application
-tracking IDs must not be used as FeaturePassport evidence identifiers.
+tracking IDs must not be used as Feature Passport evidence identifiers.
 
 ### Event Envelope Field Contract
 
@@ -396,7 +396,7 @@ analytics tools, feature flag providers, and custom runtime events.
 | `schema_version` | required | Event schema compatibility |
 | `event_name` | required | Vocabulary item such as `sg.release_seen` |
 | `specgraph.request_id` | required | Canonical request linkage |
-| `specgraph.feature_id` | required | FeaturePassport linkage |
+| `specgraph.feature_id` | required | Feature Passport linkage |
 | `specgraph.feature_passport_id` | optional until passport IDs exist | Exact passport linkage |
 | `specgraph.probe_id` | required | Declared probe linkage |
 | `delivery.environment` | required | Production/staging/dev boundary |
@@ -605,7 +605,7 @@ Minimum claim for "commit reached production":
 Minimum claim for "feature worked in production":
 
 - all of the above;
-- required FeaturePassport probes are declared;
+- required Feature Passport probes are declared;
 - `sg.feature.code_path.executed` was observed;
 - `sg.feature.effect_committed` or `sg.feature.outcome_completed` was sealed by
   receipt.
@@ -652,10 +652,10 @@ define the concrete UI implementation.
 
 ## Future Work
 
-- FeaturePassport JSON Schema.
+- Feature Passport JSON Schema.
 - Evidence event JSON Schema.
 - Receipt JSON Schema.
-- FeaturePassport signing and verification profile.
+- Feature Passport signing and verification profile.
 - SDK guidance for Swift, backend services, and web runtimes.
 - SpecGraph evidence ingestion service.
 - SpecSpace evidence ladder UI.
@@ -702,7 +702,7 @@ This proposal does not define:
 | Missing telemetry | No event is not proof of non-usage | Absence semantics |
 | Vendor lock-in | Vendors may become accidental truth sources | Adapter-only role |
 | Privacy leakage | Feature events can reveal user behavior | Pseudonymous IDs, PII ban, retention policy |
-| Probe drift | Code changes while probes stay stale | FeaturePassport versioning |
+| Probe drift | Code changes while probes stay stale | Feature Passport versioning |
 | Rollback confusion | Events may arrive from old builds | Release/build identity required |
 | Sampling ambiguity | Adoption numbers lose meaning | Sampling policy in passport |
 
@@ -715,7 +715,7 @@ languages, or vendor adapters.
 The central formula is:
 
 ```text
-FeaturePassport declares what must be proven.
+Feature Passport declares what must be proven.
 Runtime events observe what happened.
 Evidence receipts seal what SpecGraph accepts.
 Evidence levels explain how strong the proof is.
