@@ -1,6 +1,9 @@
 # SpecGraph Feature Runtime Evidence Layer
 
-Status: Draft / Proposal
+Status: Draft / ADR-level Proposal
+
+Decision scope: architecture and product evidence contract. This document does
+not implement SDKs, ingestion services, storage engines, or hosted UI.
 
 ## Summary
 
@@ -37,6 +40,23 @@ The desired claim is:
 - production runtime sessions reported the build identity;
 - feature-specific probes observed exposure, execution, effect, and outcome;
 - SpecGraph accepted and sealed those observations as evidence receipts.
+
+## Architecture Decision
+
+SpecGraph should not treat telemetry volume, feature flag evaluation, release
+notes, or merged pull requests as proof that a feature worked for users.
+
+SpecGraph should evaluate typed evidence:
+
+- FeaturePassport declares what must be proven.
+- Evidence claims state the proof target.
+- Observations report what happened.
+- Attestations bind trusted delivery systems to artifacts or deployments.
+- Receipts seal what SpecGraph accepted as canonical evidence.
+- Evidence levels explain how strong the current proof is.
+
+This makes the proposal an evidence architecture decision, not an analytics
+dashboard, SDK design, or runtime profiling mechanism.
 
 ## Canonical Chain
 
@@ -217,6 +237,28 @@ signature:
   value: "base64-signature"
 ```
 
+### FeaturePassport Field Contract
+
+The first normative schema should preserve this field boundary:
+
+| Field | Requirement | Purpose |
+| --- | --- | --- |
+| `artifact_kind` | required, constant `feature_passport` | Artifact discriminator |
+| `schema_version` | required integer | Schema compatibility |
+| `metadata.feature_id` | required | Stable feature identity |
+| `metadata.request_id` | required | Canonical SpecGraph request key |
+| `metadata.version` | required | Passport versioning and probe drift control |
+| `metadata.issuer` | required | Authority that issued the contract |
+| `spec.intent.acceptance_criteria[]` | required | User-visible success semantics |
+| `spec.implementation` | optional before code, required for L1+ claims | Source linkage |
+| `spec.delivery.artifacts[]` | required for L2+ claims | Build artifact linkage |
+| `spec.runtime.required_resource_attributes` | required for L4+ claims | Runtime identity requirements |
+| `spec.evidence.required_level` | required | Target evidence level |
+| `spec.evidence.probes[]` | required | Declared observations that can satisfy claims |
+| `spec.adoption.minimum_evidence` | required for adoption claims | Aggregation threshold |
+| `spec.privacy` | required | PII, retention, and sampling boundary |
+| `signature` | required when passport is operational | Integrity and issuer verification |
+
 ## Canonical Event Envelope
 
 All evidence events should share a stable envelope so SDKs, ingestion services,
@@ -290,6 +332,31 @@ Conditional fields:
 - `runtime.user_hash` and `runtime.session_id` are required for user-session
   evidence, but may be omitted for backend, batch, service-side, or headless
   evidence where no user session exists.
+
+### Event Envelope Field Contract
+
+The event envelope is the normalization target for SDKs, OpenTelemetry,
+analytics tools, feature flag providers, and custom runtime events.
+
+| Field | Requirement | Purpose |
+| --- | --- | --- |
+| `schema_version` | required | Event schema compatibility |
+| `event_name` | required | Vocabulary item such as `sg.release_seen` |
+| `specgraph.request_id` | required | Canonical request linkage |
+| `specgraph.feature_id` | required | FeaturePassport linkage |
+| `specgraph.feature_passport_id` | optional until passport IDs exist | Exact passport linkage |
+| `specgraph.probe_id` | required | Declared probe linkage |
+| `delivery.environment` | required | Production/staging/dev boundary |
+| `delivery.platform` | required | Runtime platform boundary |
+| `delivery.git_sha` | conditional | Required for delivery/build claims |
+| `delivery.artifact_digest` | conditional | Required for artifact claims |
+| `delivery.release_id` | conditional | Required for release claims |
+| `runtime.session_id` | conditional | Required for session-scoped evidence |
+| `runtime.user_hash` | conditional | Required for user-scoped evidence |
+| `observation.occurred_at` | required | Runtime occurrence time |
+| `observation.result` | required | Success/failure/neutral result |
+| `integrity.event_id` | required | Event identity |
+| `integrity.idempotency_key` | required | Replay and deduplication control |
 
 ## Event Vocabulary
 
@@ -401,6 +468,31 @@ For the first receipt, `previous_hash` is a declared genesis value.
 
 The client may emit observations. The server must issue evidence receipts. Only
 receipts are considered canonical SpecGraph evidence.
+
+### Receipt Field Contract
+
+The receipt schema is the canonical evidence record. It should be stricter than
+runtime observations because it represents what SpecGraph accepted.
+
+| Field | Requirement | Purpose |
+| --- | --- | --- |
+| `schema_version` | required | Receipt schema compatibility |
+| `receipt_id` | required | Stable evidence receipt identity |
+| `event_id` | required | Accepted observation linkage |
+| `accepted_claims[]` | required | Claims satisfied by the receipt |
+| `validation.known_feature_passport` | required | Passport existence check |
+| `validation.probe_declared` | required | Probe declared in passport |
+| `validation.known_artifact_digest` | conditional | Artifact provenance check |
+| `validation.known_release` | conditional | Release/deployment check |
+| `validation.environment_allowed` | required | Environment boundary check |
+| `validation.idempotency_key_unique` | required | Replay prevention |
+| `validation.schema_valid` | required | Event shape validation |
+| `hashing.canonicalization` | required | Canonical JSON/hash method |
+| `hashing.event_hash` | required | Accepted event integrity |
+| `hashing.previous_receipt_hash` | required for hash chains | Tamper-evident ordering |
+| `hashing.receipt_hash` | required | Receipt integrity |
+| `signature` | required when operational | Server authority proof |
+| `timestamps` | required | Observed, ingested, and sealed times |
 
 ## Honesty and Trust Boundaries
 
