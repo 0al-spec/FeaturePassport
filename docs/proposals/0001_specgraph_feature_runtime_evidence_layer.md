@@ -107,6 +107,28 @@ Feature feature.invoice.smart_summary reached production and completed its
 intended user-visible outcome for at least one production user.
 ```
 
+Future schemas should represent claims as machine-readable objects rather than
+free text.
+
+```yaml
+claim_id: "claim.invoice_summary.outcome"
+feature_id: "feature.invoice.smart_summary"
+request_id: "SG-REQ-2026-001"
+min_evidence_level: "L8"
+target_entities:
+  environments:
+    - "production"
+  platforms:
+    - "ios"
+success_condition:
+  min_users: 1
+  min_sessions: 1
+  required_probe_ids:
+    - "invoice_summary.release_seen.v1"
+    - "invoice_summary.render.v1"
+    - "invoice_summary.completed.v1"
+```
+
 ### Observation
 
 A raw runtime signal emitted by a client, backend, agent, or service.
@@ -150,6 +172,12 @@ The phrase "feature worked for users" requires L7 or L8.
 
 The first schema should follow SpecGraph artifact conventions rather than
 Kubernetes-style `apiVersion` / `kind` fields.
+
+This is a provisional convention decision for this repository. A future 0AL-wide
+declaration profile should align FeaturePassport, Agent Passport, and related
+declarative artifacts on a shared set of top-level identity keys. The important
+requirement is not the exact spelling of `artifact_kind` versus `kind`, but that
+all passports remain machine-discoverable, versioned, and schema-addressable.
 
 ```yaml
 artifact_kind: feature_passport
@@ -215,10 +243,12 @@ spec:
         event: "sg.feature.effect_committed"
         level: "L7"
         required: true
+        required_when: "durable_effect_expected"
       - id: "invoice_summary.completed.v1"
         event: "sg.feature.outcome_completed"
         level: "L8"
         required: true
+        required_when: "user_visible_outcome_expected"
   adoption:
     minimum_evidence:
       users: 1
@@ -260,6 +290,21 @@ The first normative schema should preserve this field boundary:
 | `spec.adoption.minimum_evidence` | required for adoption claims | Aggregation threshold |
 | `spec.privacy` | required | PII, retention, and sampling boundary |
 | `signature` | required when passport is operational | Integrity and issuer verification |
+
+### Versioning Semantics
+
+FeaturePassport uses three separate version axes:
+
+- RFC version: version of this architecture document, such as `FP-RFC-0001`
+  `0.1.0`.
+- Schema version: integer compatibility version for machine validation, such as
+  `schema_version: 1`.
+- Passport version: feature contract version in `metadata.version`, used when
+  probes, acceptance criteria, delivery expectations, or privacy rules evolve.
+
+Historical evidence must remain interpretable under the passport version that
+was active when the receipt was sealed. Breaking schema changes should ship with
+a migration note and retain enough compatibility to verify old receipts.
 
 ## Canonical Event Envelope
 
@@ -335,6 +380,12 @@ Conditional fields:
   evidence, but may be omitted for backend, batch, service-side, or headless
   evidence where no user session exists.
 
+`runtime.user_hash` must be pseudonymous and non-portable across unrelated
+deployments. The recommended baseline is keyed hashing such as HMAC with a
+deployment-specific secret and an explicit salt rotation policy. Raw user
+identifiers, emails, device advertising identifiers, or cross-application
+tracking IDs must not be used as FeaturePassport evidence identifiers.
+
 ### Event Envelope Field Contract
 
 The event envelope is the normalization target for SDKs, OpenTelemetry,
@@ -374,6 +425,18 @@ capability, or workflow state.
 For non-UI, backend-only, batch, headless, or background features, exposure may
 be explicitly marked not applicable. In those cases, L6 or server-confirmed L7
 is the first meaningful runtime evidence level.
+
+The first schema should support `required_when` predicates for probes, including:
+
+- `ui_or_user_entry_point`;
+- `durable_effect_expected`;
+- `user_visible_outcome_expected`;
+- `backend_only`;
+- `headless_or_batch`;
+- `always`.
+
+These predicates allow validators to skip impossible evidence levels without
+weakening the evidence model.
 
 ### `sg.feature.code_path.executed`
 
@@ -599,6 +662,23 @@ define the concrete UI implementation.
 - Hypercode / HCS probe binding.
 - Vendor adapters for OpenTelemetry, OpenFeature, CI/CD provenance, release
   systems, and product analytics systems.
+- 0AL-wide declaration profile alignment with Agent Passport.
+- Formal `EvidenceClaim` schema and claim-to-receipt matching rules.
+- Privacy profile for pseudonymous user/session identifiers and salt rotation.
+
+## Standards and References
+
+Later implementation documents should normatively reference the standards and
+systems they depend on. Initial candidates:
+
+- JSON Canonicalization Scheme, RFC 8785, for deterministic receipt hashing.
+- Ed25519 / EdDSA profiles for receipt and passport signatures.
+- SLSA provenance for build attestation semantics.
+- GitHub Artifact Attestations for GitHub-hosted build provenance.
+- Sigstore / Cosign for artifact signatures and attestations.
+- OpenTelemetry semantic conventions for service, deployment, and runtime
+  resource attributes.
+- OpenFeature hooks for feature flag evaluation observations.
 
 ## Non-Goals
 
