@@ -14,4 +14,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Lint Markdown
-        run: npx --yes markdownlint-cli2 "**/*.md"
+        run: make markdown-lint
