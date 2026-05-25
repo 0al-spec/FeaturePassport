@@ -1,6 +1,6 @@
-# FeaturePassport
+# Feature Passport
 
-FeaturePassport is a proposal-stage repository for feature-level evidence
+Feature Passport is a proposal-stage repository for feature-level evidence
 contracts used by SpecGraph and related 0AL tooling.
 
 The initial design target is a machine-readable contract that declares what
