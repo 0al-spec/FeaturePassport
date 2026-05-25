@@ -1,5 +1,7 @@
 # SpecGraph Feature Runtime Evidence Layer
 
+RFC: FP-RFC-0001
+Version: 0.1.0
 Status: Draft / ADR-level Proposal
 
 Decision scope: architecture and product evidence contract. This document does
