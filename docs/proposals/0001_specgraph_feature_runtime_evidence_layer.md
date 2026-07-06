@@ -1,7 +1,7 @@
 # SpecGraph Feature Runtime Evidence Layer
 
 RFC: FP-RFC-0001
-Version: 0.1.0
+Version: 0.2.0
 Status: Draft / ADR-level Proposal
 
 Decision scope: architecture and product evidence contract. This document does
@@ -129,6 +129,11 @@ success_condition:
     - "invoice_summary.completed.v1"
 ```
 
+A claim's `min_evidence_level` must not exceed the passport's
+`spec.evidence.required_level`; the passport value is the default target when a
+claim does not narrow it. A claim demanding a level above what the passport
+declares provable is invalid.
+
 ### Observation
 
 A raw runtime signal emitted by a client, backend, agent, or service.
@@ -168,6 +173,16 @@ The phrase "commit reached production" requires at least L4.
 
 The phrase "feature worked for users" requires L7 or L8.
 
+Levels form a ladder over the levels that are applicable to a feature. A level
+is reached only when all lower applicable levels are also evidenced. A level
+can be inapplicable — for example L5 for a backend-only feature — when its
+probes are excluded by `required_when` predicates; inapplicable levels are
+reported as not applicable and do not block higher levels.
+
+Only observations with `observation.result: "success"` count toward reaching a
+level. Failure observations are recorded as evidence of execution attempts but
+do not satisfy claims.
+
 ## Feature Passport Shape
 
 The first schema should follow SpecGraph artifact conventions rather than
@@ -205,9 +220,11 @@ spec:
       - name: "product-ios"
         url: "git@github.com:org/product-ios.git"
     pull_requests:
-      - "1842"
+      - repository: "product-ios"
+        number: 1842
     commits:
-      - sha: "8ae73a0f..."
+      - repository: "product-ios"
+        sha: "8ae73a0f..."
         role: "primary_implementation"
   delivery:
     artifacts:
@@ -239,6 +256,9 @@ spec:
         event: "sg.feature.code_path.executed"
         level: "L6"
         required: true
+        attributes:
+          - "surface"
+          - "operation"
       - id: "invoice_summary.backend_accepted.v1"
         event: "sg.feature.effect_committed"
         level: "L7"
@@ -263,7 +283,7 @@ spec:
     retention_days: 90
     raw_payload_storage: false
 signature:
-  algorithm: "EdDSA"
+  algorithm: "Ed25519"
   public_key_ref: "did:specgraph:issuer:release-authority#key-1"
   signed_by: "specgraph.internal.release-authority"
   value: "base64-signature"
@@ -287,9 +307,15 @@ The first normative schema should preserve this field boundary:
 | `spec.runtime.required_resource_attributes` | required for L4+ claims | Runtime identity requirements |
 | `spec.evidence.required_level` | required | Target evidence level |
 | `spec.evidence.probes[]` | required | Declared observations that can satisfy claims |
+| `spec.evidence.probes[].attributes` | required when the probe emits attributes | Allowlist of `observation.attributes` keys |
 | `spec.adoption.minimum_evidence` | required for adoption claims | Aggregation threshold |
 | `spec.privacy` | required | PII, retention, and sampling boundary |
 | `signature` | required when passport is operational | Integrity and issuer verification |
+
+`metadata.request_id` records the originating request. Features that evolve
+across several requests link the additional requests through SpecGraph edges
+(or a future `related_request_ids` list) rather than by rewriting the
+originating `request_id`.
 
 ### Versioning Semantics
 
@@ -305,6 +331,25 @@ Feature Passport uses three separate version axes:
 Historical evidence must remain interpretable under the passport version that
 was active when the receipt was sealed. Breaking schema changes should ship with
 a migration note and retain enough compatibility to verify old receipts.
+
+The current examples use two spellings for schema identity: an integer for the
+passport (`schema_version: 1`) and a namespaced string for events and receipts
+(`specgraph.evidence.event.v1`). The first normative schemas should converge on
+a single convention across all three artifacts.
+
+### Passport Lifecycle
+
+A passport is issued before some of its facts exist: commit SHAs and artifact
+digests are unknown until implementation and build complete. The first schema
+should define an explicit lifecycle:
+
+- `draft`: intent and acceptance criteria exist; implementation and delivery
+  sections may be absent or partial.
+- `sealed`: the issuer signed the passport for operational use.
+- Amendment: adding implementation links, artifact digests, or probe changes
+  re-issues the passport with an incremented `metadata.version` and a new
+  issuer signature. Receipts reference the passport version that was active at
+  sealing time.
 
 ## Canonical Event Envelope
 
@@ -369,6 +414,7 @@ Common required fields:
 - `delivery.environment`;
 - `delivery.platform`;
 - `observation.occurred_at`;
+- `observation.result`;
 - `integrity.event_id`;
 - `integrity.idempotency_key`.
 
@@ -385,6 +431,22 @@ deployments. The recommended baseline is keyed hashing such as HMAC with a
 deployment-specific secret and an explicit salt rotation policy. Raw user
 identifiers, emails, device advertising identifiers, or cross-application
 tracking IDs must not be used as Feature Passport evidence identifiers.
+
+Salt rotation must be coordinated with adoption aggregation windows: rotating
+inside an open window splits one user into two hashes and inflates
+`minimum_evidence.users` counting.
+
+`observation.attributes` must be restricted to the keys declared in the probe's
+`attributes` allowlist in the Feature Passport. Ingestion should drop
+undeclared attributes; otherwise the `pii_allowed: false` boundary is
+unenforceable.
+
+`integrity.idempotency_key` uniqueness is scoped per `feature_id` and
+`probe_id`. The recommended key structure is
+`platform:session_id:probe_id:client_sequence`, where `client_sequence` is a
+monotonically increasing per-session counter. Ingestion should additionally
+enforce an acceptance window on `observation.occurred_at` with bounded client
+clock skew to limit replay.
 
 ### Event Envelope Field Contract
 
@@ -438,6 +500,11 @@ The first schema should support `required_when` predicates for probes, including
 These predicates allow validators to skip impossible evidence levels without
 weakening the evidence model.
 
+`required_when` scopes `required`: a probe carrying both fields is required
+only when the predicate applies to the feature, and is otherwise not applicable
+rather than optional. A probe without `required_when` is treated as
+`required_when: "always"`.
+
 ### `sg.feature.code_path.executed`
 
 The implementation path associated with the feature was entered.
@@ -489,7 +556,7 @@ A SpecGraph evidence receipt records:
   "event_id": "evt_01J...",
   "accepted_claims": [
     {
-      "claim_id": "claim_feature_runtime_execution",
+      "claim_id": "claim.invoice_summary.runtime_execution",
       "level": "L6",
       "satisfied": true
     }
@@ -523,13 +590,36 @@ A SpecGraph evidence receipt records:
 }
 ```
 
-Hash-linked receipts use the sealed previous receipt hash:
+Receipts record probe-level claim contributions. Aggregate claims — such as
+"at least N users completed the outcome" — are never satisfied by a single
+receipt; they are evaluated by a separate claim evaluation step over the set of
+sealed receipts inside the claim's aggregation window.
+
+Hash-linked receipts must cover the receipt content itself, not only the
+accepted event, so that validation results and accepted claims are also
+tamper-evident:
 
 ```text
-receipt_hash_n = sha256(canonical_json(event_n) + previous_hash)
+event_hash_n   = sha256(canonical_json(event_n))
+receipt_hash_n = sha256(canonical_json(receipt_n excluding
+                 hashing.receipt_hash and signature.value))
 ```
 
-For the first receipt, `previous_hash` is a declared genesis value.
+`receipt_n` includes `hashing.event_hash`, `hashing.previous_receipt_hash`, and
+the signature metadata (`algorithm`, `signed_by`, `public_key_ref`), so the
+chain covers the accepted event, the receipt fields, and the key binding —
+only `signature.value` itself is excluded from the hash. The receipt signature
+is computed over `receipt_hash`; because the key metadata is inside the hash,
+a verifier cannot be redirected to a different allowed key without breaking
+the chain.
+
+For the first receipt in a chain, `previous_receipt_hash` is a declared genesis
+value.
+
+Each receipt chain must declare its scope. The recommended default is one chain
+per Feature Passport per environment; a single global chain would serialize all
+ingestion. Tree-based transparency-log structures are a possible future
+alternative for high-volume deployments.
 
 The client may emit observations. The server must issue evidence receipts. Only
 receipts are considered canonical SpecGraph evidence.
@@ -579,7 +669,7 @@ Therefore:
 | --- | --- |
 | Commit included in artifact | Strong, with build attestation |
 | Artifact released to production | Strong, with deploy or release attestation |
-| Runtime reported build identity | Strong operational evidence |
+| Runtime reported build identity | Client-bound observation; strong when corroborated by server-side traffic for that build identity |
 | Feature UI exposed on client | Useful but client-bound observation |
 | Feature code path executed on client | Useful but client-bound observation |
 | Backend effect committed | Stronger, server-confirmed evidence |
@@ -665,13 +755,16 @@ define the concrete UI implementation.
 - 0AL-wide declaration profile alignment with Agent Passport.
 - Formal `EvidenceClaim` schema and claim-to-receipt matching rules.
 - Privacy profile for pseudonymous user/session identifiers and salt rotation.
+- Failure and abort event vocabulary, such as `sg.feature.error`.
 
 ## Standards and References
 
 Later implementation documents should normatively reference the standards and
 systems they depend on. Initial candidates:
 
-- JSON Canonicalization Scheme, RFC 8785, for deterministic receipt hashing.
+- JSON Canonicalization Scheme, RFC 8785, for deterministic receipt and
+  passport hashing; YAML passports are normalized to JSON before
+  canonicalization and signing.
 - Ed25519 / EdDSA profiles for receipt and passport signatures.
 - SLSA provenance for build attestation semantics.
 - GitHub Artifact Attestations for GitHub-hosted build provenance.
@@ -703,7 +796,7 @@ This proposal does not define:
 | Vendor lock-in | Vendors may become accidental truth sources | Adapter-only role |
 | Privacy leakage | Feature events can reveal user behavior | Pseudonymous IDs, PII ban, retention policy |
 | Probe drift | Code changes while probes stay stale | Feature Passport versioning |
-| Rollback confusion | Events may arrive from old builds | Release/build identity required |
+| Rollback confusion | Events may arrive from old builds | Release/build identity required; claim evaluation respects release validity windows, so receipts from rolled-back builds stay historical but stop satisfying current-production claims |
 | Sampling ambiguity | Adoption numbers lose meaning | Sampling policy in passport |
 
 ## Boundary of the First Proposal
