@@ -256,6 +256,9 @@ spec:
         event: "sg.feature.code_path.executed"
         level: "L6"
         required: true
+        attributes:
+          - "surface"
+          - "operation"
       - id: "invoice_summary.backend_accepted.v1"
         event: "sg.feature.effect_committed"
         level: "L7"
@@ -304,6 +307,7 @@ The first normative schema should preserve this field boundary:
 | `spec.runtime.required_resource_attributes` | required for L4+ claims | Runtime identity requirements |
 | `spec.evidence.required_level` | required | Target evidence level |
 | `spec.evidence.probes[]` | required | Declared observations that can satisfy claims |
+| `spec.evidence.probes[].attributes` | required when the probe emits attributes | Allowlist of `observation.attributes` keys |
 | `spec.adoption.minimum_evidence` | required for adoption claims | Aggregation threshold |
 | `spec.privacy` | required | PII, retention, and sampling boundary |
 | `signature` | required when passport is operational | Integrity and issuer verification |
@@ -432,9 +436,10 @@ Salt rotation must be coordinated with adoption aggregation windows: rotating
 inside an open window splits one user into two hashes and inflates
 `minimum_evidence.users` counting.
 
-`observation.attributes` must be restricted to attributes declared by the probe
-in the Feature Passport. Ingestion should drop undeclared attributes; otherwise
-the `pii_allowed: false` boundary is unenforceable.
+`observation.attributes` must be restricted to the keys declared in the probe's
+`attributes` allowlist in the Feature Passport. Ingestion should drop
+undeclared attributes; otherwise the `pii_allowed: false` boundary is
+unenforceable.
 
 `integrity.idempotency_key` uniqueness is scoped per `feature_id` and
 `probe_id`. The recommended key structure is
@@ -597,12 +602,16 @@ tamper-evident:
 ```text
 event_hash_n   = sha256(canonical_json(event_n))
 receipt_hash_n = sha256(canonical_json(receipt_n excluding
-                 hashing.receipt_hash and signature))
+                 hashing.receipt_hash and signature.value))
 ```
 
-`receipt_n` includes `hashing.event_hash` and `hashing.previous_receipt_hash`,
-so the chain covers both the accepted event and the receipt fields. The receipt
-signature is computed over `receipt_hash`.
+`receipt_n` includes `hashing.event_hash`, `hashing.previous_receipt_hash`, and
+the signature metadata (`algorithm`, `signed_by`, `public_key_ref`), so the
+chain covers the accepted event, the receipt fields, and the key binding —
+only `signature.value` itself is excluded from the hash. The receipt signature
+is computed over `receipt_hash`; because the key metadata is inside the hash,
+a verifier cannot be redirected to a different allowed key without breaking
+the chain.
 
 For the first receipt in a chain, `previous_receipt_hash` is a declared genesis
 value.
