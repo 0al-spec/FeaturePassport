@@ -15,7 +15,7 @@ claimed to be integrated.
 ## Source and Contract Provenance
 
 Implementation anchors below identify the local Zeusus repository at commit
-`7e3d9d848fbca3425c2122bc76a08cc47edc09c5`. The repository name `zeusus` must be
+`09a8455e03e3047c19a3f6f33a69ba14ac3c084e`. The repository name `zeusus` must be
 resolved by the deployment to its checkout or source archive; a hosted remote
 is not required. The internal Swift symbols were inspected directly in that
 revision. Feature Passport's Swift source resolver now resolves all four
@@ -44,7 +44,7 @@ metadata:
   title: Deterministic route strategy composition
   owner: zeusus
   issuer: zeusus.contract-author
-  version: 0.1.0
+  version: 0.2.0
   status: draft
 spec:
   intent:
@@ -67,18 +67,18 @@ spec:
       - name: zeusus
     commits:
       - repository: zeusus
-        sha: 7e3d9d848fbca3425c2122bc76a08cc47edc09c5
+        sha: 09a8455e03e3047c19a3f6f33a69ba14ac3c084e
         role: primary_implementation
     elements:
       - id: route-composition
         role: composition
         anchors:
           - repository: zeusus
-            revision: 7e3d9d848fbca3425c2122bc76a08cc47edc09c5
+            revision: 09a8455e03e3047c19a3f6f33a69ba14ac3c084e
             language: swift
             module: ZeususInput
             path: Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift
-            symbol: RoadRouteStrategyComposition.evaluate(in:)
+            symbol: RoadRouteStrategyComposition.evaluate(in:recordingTo:)
         uses:
           - element_id: straight-first-pass
             relation: invokes
@@ -89,7 +89,7 @@ spec:
         role: strategy
         anchors:
           - repository: zeusus
-            revision: 7e3d9d848fbca3425c2122bc76a08cc47edc09c5
+            revision: 09a8455e03e3047c19a3f6f33a69ba14ac3c084e
             language: swift
             module: ZeususInput
             path: Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift
@@ -98,7 +98,7 @@ spec:
         role: policy
         anchors:
           - repository: zeusus
-            revision: 7e3d9d848fbca3425c2122bc76a08cc47edc09c5
+            revision: 09a8455e03e3047c19a3f6f33a69ba14ac3c084e
             language: swift
             module: ZeususInput
             path: Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift
@@ -107,7 +107,7 @@ spec:
         role: test
         anchors:
           - repository: zeusus
-            revision: 7e3d9d848fbca3425c2122bc76a08cc47edc09c5
+            revision: 09a8455e03e3047c19a3f6f33a69ba14ac3c084e
             language: swift
             module: ZeususSimulationTests
             path: Tests/ZeususSimulationTests/RoadStrokeAdapterTests.swift
@@ -135,18 +135,19 @@ spec:
 
 `required_level: L6` is a future delivery/runtime evidence target, not the current
 result. Claiming that level still requires lower applicable levels and matching
-environment/build evidence. The proposed probe is not instrumented in Zeusus.
+environment/build evidence. Zeusus now records route diagnostics through an
+operation-scoped sink, but it does not emit this Feature Passport probe's
+canonical observation envelope or an accepted receipt.
 
 ## Evidence Available Today
 
 At the implementation revision, Zeusus records **21 passing
-`RoadStrokeAdapterTests`** through the open Xcode workspace, on iPad Air M3
-Simulator with iOS 18.6. The source record is
-`docs/evidence/road-stroke-routing.md`, section
-`Composition-of-strategies implementation — 2026-09-28`. Separately, the
-Zeusus local pilot ran the focused composition scenario through Swift Testing:
-one test passed with no failures, errors, or skips. Its generated diagnostic
-card, source-resolution result, and xUnit report are recorded in Zeusus at
+`RoadStrokeAdapterTests`** and **5 passing route-trace tests** via SwiftPM.
+The open Xcode project also built successfully on the iPad Air M3 Simulator
+destination. The source record is `docs/evidence/route-runtime-tracing.md` in
+the local Zeusus repository. The focused composition scenario was separately
+run by the Zeusus local Feature Passport pilot; its card, source-resolution
+result, and xUnit report are recorded at
 `docs/evidence/feature-passport-route-pilot.md`. The same pipeline is checked
 into a Zeusus GitHub Actions workflow, but Zeusus has no Git remote, so no
 hosted run is claimed.
@@ -163,8 +164,8 @@ composition where every pass returns noPath.
 | Local document validation | `make validate-zeusus` passes schema and local reference checks |
 | External contract resolution | Unresolved; spec revision/digest not pinned here |
 | Local implementation mapping | Authored in this draft; not automatically extracted |
-| Tests | Existing 21-test simulator report cited; one focused Swift Testing scenario also passed in the local pilot |
-| FP runtime probe | Proposed; not implemented |
+| Tests | 21 route-adapter and 5 route-trace SwiftPM tests passed; one focused scenario also passed in the local pilot |
+| FP runtime probe | Route diagnostics exist; canonical FP observation and receipt are not implemented |
 | Passport signature / receipt | None |
 | Production delivery or adoption | Not established |
 
