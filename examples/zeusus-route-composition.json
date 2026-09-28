@@ -1,0 +1,169 @@
+{
+  "artifact_kind": "feature_passport",
+  "schema_version": 1,
+  "metadata": {
+    "passport_id": "fp.zeusus.route-composition",
+    "feature_id": "feature.zeusus.route-composition",
+    "title": "Deterministic route strategy composition",
+    "owner": "zeusus",
+    "issuer": "zeusus.contract-author",
+    "version": "0.1.0",
+    "status": "draft"
+  },
+  "spec": {
+    "intent": {
+      "summary": "Compose route strategies and select their result deterministically.",
+      "acceptance_criteria": [
+        {
+          "id": "ordered-composition",
+          "text": "Passes receive the same read-only context and ordered prior results; each result retains component identity and invocation order."
+        },
+        {
+          "id": "deterministic-selection",
+          "text": "Select the first available route in configured order, or noPath when no pass supplies a route, without mutating the world."
+        }
+      ]
+    },
+    "contract_refs": [
+      {
+        "id": "route-composition-contract",
+        "relation": "implements",
+        "provider": "specgraph",
+        "locator": {
+          "workspace": "zeusus",
+          "node_id": "ZEU-SPEC-0016",
+          "scenario_id": "ZEU-ROAD-STRATEGY-COMPOSITION-001"
+        }
+      }
+    ],
+    "implementation": {
+      "repositories": [
+        {
+          "name": "zeusus"
+        }
+      ],
+      "commits": [
+        {
+          "repository": "zeusus",
+          "sha": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+          "role": "primary_implementation"
+        }
+      ],
+      "elements": [
+        {
+          "id": "route-composition",
+          "role": "composition",
+          "anchors": [
+            {
+              "repository": "zeusus",
+              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "language": "swift",
+              "module": "ZeususInput",
+              "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
+              "symbol": "RoadRouteStrategyComposition.evaluate(in:)"
+            }
+          ],
+          "uses": [
+            {
+              "element_id": "straight-first-pass",
+              "relation": "invokes",
+              "invocation_order": 0
+            },
+            {
+              "element_id": "candidate-selection",
+              "relation": "evaluates"
+            }
+          ]
+        },
+        {
+          "id": "straight-first-pass",
+          "role": "strategy",
+          "anchors": [
+            {
+              "repository": "zeusus",
+              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "language": "swift",
+              "module": "ZeususInput",
+              "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
+              "symbol": "StraightFirstRoadRoutePass.evaluate(in:priorResults:)"
+            }
+          ]
+        },
+        {
+          "id": "candidate-selection",
+          "role": "policy",
+          "anchors": [
+            {
+              "repository": "zeusus",
+              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "language": "swift",
+              "module": "ZeususInput",
+              "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
+              "symbol": "RoadRouteCompositionSpecifications.candidateSelection()"
+            }
+          ]
+        },
+        {
+          "id": "composition-scenario-test",
+          "role": "test",
+          "anchors": [
+            {
+              "repository": "zeusus",
+              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "language": "swift",
+              "module": "ZeususSimulationTests",
+              "path": "Tests/ZeususSimulationTests/RoadStrokeAdapterTests.swift",
+              "symbol": "RoadStrokeAdapterTests.routeStrategyCompositionPassesReadOnlyResultsInOrder()"
+            }
+          ]
+        }
+      ],
+      "bindings": [
+        {
+          "id": "composition-realization",
+          "contract_ref_ids": [
+            "route-composition-contract"
+          ],
+          "acceptance_criteria_ids": [
+            "ordered-composition",
+            "deterministic-selection"
+          ],
+          "element_ids": [
+            "route-composition",
+            "straight-first-pass",
+            "candidate-selection"
+          ],
+          "test_element_ids": [
+            "composition-scenario-test"
+          ]
+        }
+      ]
+    },
+    "evidence": {
+      "required_level": "L6",
+      "probes": [
+        {
+          "id": "zeusus.route-composition.executed.v1",
+          "event": "fp.feature.code_path.executed",
+          "level": "L6",
+          "required": true,
+          "element_ids": [
+            "route-composition",
+            "straight-first-pass",
+            "candidate-selection"
+          ],
+          "attributes": [
+            "invocation_order",
+            "candidate_outcome",
+            "selected_element_id"
+          ]
+        }
+      ]
+    },
+    "privacy": {
+      "pii_allowed": false,
+      "retention_days": 30,
+      "raw_payload_storage": false
+    }
+  }
+}

@@ -1,7 +1,9 @@
 # Zeusus route composition: implementation-binding pilot
 
-Status: draft example for RFC `FP-RFC-0001` v0.3.0. This is a worked contract
-design, not a schema-validated passport, generated inventory, or signed receipt.
+Status: draft example for RFC `FP-RFC-0001` v0.3.0. The executable
+[JSON passport](../../examples/zeusus-route-composition.json) passes local
+document validation. It is an authored binding inventory, not a resolved
+external contract, verified runtime observation, or signed receipt.
 
 Zeusus supplies a concrete software-factory pilot: route strategies are composed
 in order, receive a read-only planning context and preceding results, and select
@@ -151,6 +153,7 @@ composition where every pass returns noPath.
 | Aspect | Pilot status |
 | --- | --- |
 | Source anchors | Manually inspected at the pinned Zeusus commit |
+| Local document validation | `make validate-zeusus` passes schema and local reference checks |
 | External contract resolution | Unresolved; spec revision/digest not pinned here |
 | Local implementation mapping | Authored in this draft; not automatically extracted |
 | Tests | Existing simulator test report referenced, not re-run |
@@ -160,8 +163,8 @@ composition where every pass returns noPath.
 
 ## Next Implementation Boundary
 
-Validate the provider-neutral envelope and internal references first. Then add
-a Swift source resolver, a SpecGraph locator adapter, and an explicit test-report
-adapter independently. A passport with only local criteria must use the same
-core path. Only after those boundaries work should Zeusus emit the proposed
-runtime events and connect them to an explicitly configured evidence authority.
+The provider-neutral envelope and local references now validate. Next add a
+Swift source resolver, a SpecGraph locator adapter, and an explicit test-report
+adapter independently. A passport with only local criteria uses the same core
+path. Only after those boundaries work should Zeusus emit the proposed runtime
+events and connect them to an explicitly configured evidence authority.
