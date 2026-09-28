@@ -13,7 +13,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ajevans99/swift-json-schema", exact: "0.13.2"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "604.0.0")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "604.0.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "4.5.1")
     ],
     targets: [
         .target(
@@ -21,7 +22,8 @@ let package = Package(
             dependencies: [
                 .product(name: "JSONSchema", package: "swift-json-schema"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax")
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "Crypto", package: "swift-crypto")
             ],
             resources: [.process("Resources")]
         ),

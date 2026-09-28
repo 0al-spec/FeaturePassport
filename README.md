@@ -44,6 +44,14 @@ declared attribute, element, and runtime-correlation boundaries. Its
 not a signature-verified observation, accepted receipt, or `runtime_verified`
 claim. See the [runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md).
 
+The bounded `verify-receipt` command verifies an Ed25519 authority signature
+against a caller-supplied offline trust store, exact passport and observation
+byte digests, and the local observation contract. Its
+`trusted_observation_receipt` verdict does not establish delivery provenance,
+replay uniqueness, successful execution, or a feature outcome. The receipt
+profile uses versioned length-prefixed signing fields and deliberately does
+not claim JCS conformance. See the [signed observation receipt profile](docs/contracts/signed-observation-receipt-v1.md).
+
 ## Pinned source resolution
 
 ```sh
@@ -69,6 +77,7 @@ behavior, test execution, or provider contracts. See the
 - [Passport v1 document validation profile](docs/contracts/passport-v1-validation.md)
 - [Pinned Swift source-resolution contract](docs/contracts/source-resolution.md)
 - [Runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md)
+- [Signed observation receipt verifier v1](docs/contracts/signed-observation-receipt-v1.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
 - [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
 - [Zeusus passport validation evidence](docs/evidence/zeusus-passport-validation.md)

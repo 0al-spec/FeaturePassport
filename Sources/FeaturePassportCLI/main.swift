@@ -2,7 +2,7 @@ import FeaturePassport
 import Foundation
 
 private func usage() -> Never {
-    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
+    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
     exit(2)
 }
 
@@ -50,6 +50,35 @@ do {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         print(String(decoding: try encoder.encode(evaluation), as: UTF8.self))
         if !evaluation.matched { exit(1) }
+    case "verify-receipt":
+        guard arguments.count == 6 || arguments.count == 8,
+              arguments[4] == "--trust-store",
+              arguments.count == 6 || arguments[6] == "--at" else { usage() }
+        let observationData = try Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+        let receiptData = try Data(contentsOf: URL(fileURLWithPath: arguments[3]))
+        let trustData = try Data(contentsOf: URL(fileURLWithPath: arguments[5]))
+        let trustStore = try EvidenceReceiptTrustStore.decode(from: trustData)
+        let verificationTime: Date
+        if arguments.count == 8 {
+            let timestamp = arguments[7]
+            let timestampPattern = #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$"#
+            guard timestamp.range(of: timestampPattern, options: .regularExpression) != nil else { usage() }
+            let formatter = ISO8601DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.formatOptions = timestamp.contains(".") ? [.withInternetDateTime, .withFractionalSeconds] : [.withInternetDateTime]
+            guard let parsed = formatter.date(from: timestamp), timestamp.hasSuffix("Z") else { usage() }
+            verificationTime = parsed
+        } else {
+            verificationTime = Date()
+        }
+        let report = try EvidenceReceiptVerifier().verify(
+            passportData: data, observationData: observationData, receiptData: receiptData,
+            trustStore: trustStore, verificationTime: verificationTime
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        print(String(decoding: try encoder.encode(report), as: UTF8.self))
+        if !report.trusted { exit(1) }
     default:
         usage()
     }
