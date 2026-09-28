@@ -2,7 +2,7 @@ import FeaturePassport
 import Foundation
 
 private func usage() -> Never {
-    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
+    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
     exit(2)
 }
 
@@ -40,6 +40,16 @@ do {
         let output = try encoder.encode(report)
         print(String(decoding: output, as: UTF8.self))
         if !report.isResolved { exit(1) }
+    case "evaluate-observation":
+        guard arguments.count == 5, arguments[2] == "--passport-digest", !arguments[3].isEmpty else { usage() }
+        let observationData = try Data(contentsOf: URL(fileURLWithPath: arguments[4]))
+        let evaluation = try RuntimeObservationEvaluator().evaluate(
+            passportData: data, passportDigest: arguments[3], observationData: observationData
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        print(String(decoding: try encoder.encode(evaluation), as: UTF8.self))
+        if !evaluation.matched { exit(1) }
     default:
         usage()
     }
