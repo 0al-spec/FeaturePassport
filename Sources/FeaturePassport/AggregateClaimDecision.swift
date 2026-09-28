@@ -109,15 +109,27 @@ public struct AggregateClaimDecisionTrustStore: Codable, Equatable, Sendable {
             throw AggregateClaimDecisionError.invalidTrustStore
         }
         let store = try JSONDecoder().decode(Self.self, from: data)
+        var identityByteCount = 0
+        var digestCount = 0
+        for key in store.trustedKeys {
+            let authorityBytes = key.authorityID.utf8.count
+            let keyIDBytes = key.keyID.utf8.count
+            guard authorityBytes > 0, authorityBytes <= 128, keyIDBytes > 0, keyIDBytes <= 128,
+                  key.publicKey.utf8.count <= 64, Data(base64Encoded: key.publicKey)?.count == 32,
+                  !key.authorizedClaimPolicyDigests.isEmpty,
+                  key.authorizedClaimPolicyDigests.count <= 1024 else {
+                throw AggregateClaimDecisionError.invalidTrustStore
+            }
+            identityByteCount += authorityBytes + keyIDBytes
+            digestCount += key.authorizedClaimPolicyDigests.count
+            guard identityByteCount <= 262_144, digestCount <= 1024,
+                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
+                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count else {
+                throw AggregateClaimDecisionError.invalidTrustStore
+            }
+        }
         let identities = store.trustedKeys.map { "\($0.authorityID)|\($0.keyID)" }
-        guard Set(identities).count == identities.count,
-              store.trustedKeys.allSatisfy({ key in
-                  !key.authorityID.isEmpty && !key.keyID.isEmpty &&
-                  Data(base64Encoded: key.publicKey)?.count == 32 &&
-                  !key.authorizedClaimPolicyDigests.isEmpty &&
-                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count &&
-                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest)
-              }) else {
+        guard Set(identities).count == identities.count else {
             throw AggregateClaimDecisionError.invalidTrustStore
         }
         return store
@@ -126,6 +138,9 @@ public struct AggregateClaimDecisionTrustStore: Codable, Equatable, Sendable {
 
 /// Signed result of one exact, repeatable local aggregate predicate evaluation.
 public struct AggregateClaimDecision: Codable, Equatable, Sendable {
+    /// Maximum serialized decision artifact size accepted by the verifier.
+    public static let maximumArtifactBytes = 1_000_000
+
     public enum Decision: String, Codable, Sendable {
         case accepted
         case notSatisfied = "not_satisfied"
@@ -199,6 +214,17 @@ public struct AggregateClaimDecision: Codable, Equatable, Sendable {
         case pairDigests = "pair_digests"
         case issuer, signature
     }
+
+    /// Encodes the artifact using sorted JSON keys and enforces the verifier's byte limit.
+    public func encoded() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(self)
+        guard data.count <= Self.maximumArtifactBytes else {
+            throw AggregateClaimDecisionError.artifactSizeLimit
+        }
+        return data
+    }
 }
 
 public struct AggregateClaimDecisionVerificationReport: Codable, Equatable, Sendable {
@@ -226,8 +252,13 @@ public struct AggregateClaimDecisionIssuer: Sendable {
         }
         try AggregateClaimDecisionVerifier.validateInputs(inputs)
         let policyDigest = EvidenceReceiptVerifier.sha256(inputs.claimPolicyData)
-        guard authorization.authorizedClaimPolicyDigests.contains(policyDigest),
-              !authorization.authorityID.isEmpty, !authorization.keyID.isEmpty else {
+        guard !authorization.authorityID.isEmpty, !authorization.keyID.isEmpty,
+              authorization.authorityID.utf8.count <= 128,
+              authorization.keyID.utf8.count <= 128,
+              authorization.publicKey.count == 32,
+              authorization.authorizedClaimPolicyDigests.count <= 1024,
+              authorization.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
+              authorization.authorizedClaimPolicyDigests.contains(policyDigest) else {
             throw AggregateClaimDecisionError.unauthorizedPolicy
         }
         guard signer.publicKey == authorization.publicKey,
@@ -262,12 +293,29 @@ public struct AggregateClaimDecisionIssuer: Sendable {
             issuer: .init(authorityID: authorization.authorityID, keyID: authorization.keyID),
             signature: .init(algorithm: "Ed25519", profile: AggregateClaimDecisionSigningProfile.identifier, value: "")
         )
+        let boundedPlaceholder = AggregateClaimDecision(
+            artifactKind: unsigned.artifactKind, schemaVersion: unsigned.schemaVersion,
+            decisionProfile: unsigned.decisionProfile,
+            decisionDigest: "sha256:" + String(repeating: "0", count: 64),
+            decision: unsigned.decision, featureID: unsigned.featureID, passportID: unsigned.passportID,
+            passportVersion: unsigned.passportVersion, claimID: unsigned.claimID,
+            claimPolicyID: unsigned.claimPolicyID, claimPolicyVersion: unsigned.claimPolicyVersion,
+            claimPolicyDigest: unsigned.claimPolicyDigest, predicateProfile: unsigned.predicateProfile,
+            evaluationTime: unsigned.evaluationTime, passportDigest: unsigned.passportDigest,
+            bundleDigest: unsigned.bundleDigest, receiptTrustStoreDigest: unsigned.receiptTrustStoreDigest,
+            pairDigests: unsigned.pairDigests, issuer: unsigned.issuer,
+            signature: .init(algorithm: "Ed25519", profile: AggregateClaimDecisionSigningProfile.identifier,
+                            value: Data(repeating: 0, count: 64).base64EncodedString())
+        )
+        guard try Self.encodedSize(of: boundedPlaceholder) <= AggregateClaimDecision.maximumArtifactBytes else {
+            throw AggregateClaimDecisionError.artifactSizeLimit
+        }
         let payload = AggregateClaimDecisionSigningProfile.payload(for: unsigned)
         let signature = try signer.sign(message: payload)
         guard signature.count == 64, publicKey.isValidSignature(signature, for: payload) else {
             throw AggregateClaimDecisionError.signerReturnedInvalidSignature
         }
-        return AggregateClaimDecision(
+        let issued = AggregateClaimDecision(
             artifactKind: unsigned.artifactKind, schemaVersion: unsigned.schemaVersion,
             decisionProfile: unsigned.decisionProfile,
             decisionDigest: EvidenceReceiptVerifier.sha256(payload), decision: unsigned.decision,
@@ -281,6 +329,8 @@ public struct AggregateClaimDecisionIssuer: Sendable {
             signature: .init(algorithm: "Ed25519", profile: AggregateClaimDecisionSigningProfile.identifier,
                             value: signature.base64EncodedString())
         )
+        _ = try issued.encoded()
+        return issued
     }
 
     private static func pairDigests(_ pairs: [AggregateClaimDecisionInputs.Pair]) -> [AggregateClaimDecision.PairDigest] {
@@ -290,6 +340,12 @@ public struct AggregateClaimDecisionIssuer: Sendable {
                   receiptDigest: EvidenceReceiptVerifier.sha256($0.receiptData))
         }
     }
+
+    private static func encodedSize(of decision: AggregateClaimDecision) throws -> Int {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(decision).count
+    }
 }
 
 /// Verifies decision signature and exact input links, then reruns the local predicate.
@@ -298,6 +354,9 @@ public struct AggregateClaimDecisionVerifier: Sendable {
 
     public func verify(decisionData: Data, inputs: AggregateClaimDecisionInputs,
                        trustStore: AggregateClaimDecisionTrustStore) throws -> AggregateClaimDecisionVerificationReport {
+        guard decisionData.count <= 1_000_000 else {
+            return Self.rejected("size_limit", "Decision artifact exceeds the 1 MB verifier input limit")
+        }
         try Self.validateInputs(inputs)
         guard Self.isValid(trustStore: trustStore) else {
             return Self.rejected("decision_trust_store_invalid", "Decision authority trust configuration is malformed or ambiguous")
@@ -375,13 +434,28 @@ public struct AggregateClaimDecisionVerifier: Sendable {
 
     private static func isValid(trustStore: AggregateClaimDecisionTrustStore) -> Bool {
         guard !trustStore.trustedKeys.isEmpty, trustStore.trustedKeys.count <= 1024 else { return false }
-        let identities = trustStore.trustedKeys.map { "\($0.authorityID)|\($0.keyID)" }
-        return Set(identities).count == identities.count && trustStore.trustedKeys.allSatisfy { key in
-            !key.authorityID.isEmpty && !key.keyID.isEmpty && Data(base64Encoded: key.publicKey)?.count == 32 &&
-                !key.authorizedClaimPolicyDigests.isEmpty &&
-                Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count &&
-                key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest)
+        var identityByteCount = 0
+        var digestCount = 0
+        for key in trustStore.trustedKeys {
+            let authorityBytes = key.authorityID.utf8.count
+            let keyIDBytes = key.keyID.utf8.count
+            guard authorityBytes > 0, authorityBytes <= 128, keyIDBytes > 0, keyIDBytes <= 128,
+                  key.publicKey.utf8.count <= 64, Data(base64Encoded: key.publicKey)?.count == 32,
+                  !key.authorizedClaimPolicyDigests.isEmpty,
+                  key.authorizedClaimPolicyDigests.count <= 1024 else { return false }
+            identityByteCount += authorityBytes + keyIDBytes
+            digestCount += key.authorizedClaimPolicyDigests.count
+            guard identityByteCount <= 262_144, digestCount <= 1024,
+                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
+                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count else { return false }
         }
+        let identities = trustStore.trustedKeys.map { "\($0.authorityID)|\($0.keyID)" }
+        guard Set(identities).count == identities.count else { return false }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let encodedStore = try? encoder.encode(trustStore),
+              encodedStore.count <= 1_000_000 else { return false }
+        return true
     }
 
     private static func validateDecisionEnvelope(_ data: Data) throws {
@@ -442,7 +516,7 @@ enum AggregateClaimDecisionSigningProfile {
     }
 
     static func isDigest(_ value: String) -> Bool {
-        guard value.hasPrefix("sha256:") else { return false }
+        guard value.utf8.count == 71, value.hasPrefix("sha256:") else { return false }
         let hex = value.dropFirst(7)
         return hex.count == 64 && hex.allSatisfy { "0123456789abcdef".contains($0) }
     }
@@ -451,7 +525,7 @@ enum AggregateClaimDecisionSigningProfile {
 private enum AggregateClaimDecisionError: Error {
     case invalidEvaluationTime, invalidTrustStore, unauthorizedPolicy, invalidSigner
     case signerReturnedInvalidSignature, invalidPredicateInputs, inputLimit
-    case bundlePairMismatch, invalidDecision
+    case bundlePairMismatch, invalidDecision, artifactSizeLimit
 }
 
 extension AggregateClaimDecisionIssuer {

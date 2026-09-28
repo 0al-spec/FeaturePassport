@@ -22,7 +22,11 @@ pair includes its bundle path references. The library verifies that the
 references exactly match the decoded bundle entries in order. Inputs retain
 the bounds of the local evaluator: 10 MB passport, 256 KB policy/bundle, 1 MB
 receipt trust store, 64 pairs, 10 MB per observation, 256 KB per receipt, and
-64 MB total pair bytes.
+64 MB total pair bytes. The issuer's sorted-key JSON serialization and the
+verifier's raw decision input are both capped at 1 MB. The issuer checks a
+same-length signature/digest placeholder before calling the signer, so an
+oversized artifact is never issued. Call `AggregateClaimDecision.encoded()` to
+obtain the bounded sorted-key representation.
 
 The signed decision records SHA-256 digests of the exact passport, policy,
 bundle, and receipt trust-store bytes. It also records both exact byte digests
@@ -77,10 +81,14 @@ The verifier's explicit offline trust store has this exact envelope:
 
 Unknown fields, duplicate JSON names, duplicate authority/key pairs, malformed
 keys, duplicate or malformed digests, empty allowlists, and stores over 1 MB
-are rejected. The signing-side `AggregateClaimDecisionAuthorization` has the
-same authority/key identity and an exact allowlist of policy digests. The
-injected signer's public key must equal the public key in that authorization.
-This profile does not distribute, rotate, or revoke authority keys.
+are rejected. The trust store is capped at 1 MB and 1,024 keys; authority and
+key IDs are at most 128 UTF-8 bytes each, and the store allowlists at most
+1,024 claim-policy digests total. Direct library trust-store values are
+subject to the same checks before duplicate-identity construction or encoding.
+The signing-side `AggregateClaimDecisionAuthorization` has the same authority/key
+identity and an exact allowlist of at most 1,024 policy digests. The injected
+signer's public key must equal the public key in that authorization. This
+profile does not distribute, rotate, or revoke authority keys.
 
 ## CLI verification
 
