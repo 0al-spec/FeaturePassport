@@ -9,10 +9,10 @@ must be proven for a product feature: intent, implementation links, delivery
 artifacts, runtime probes, privacy boundaries, and accepted evidence receipts.
 
 The repository contains an experimental Swift validator for the passport
-document envelope and passport-local references, plus a read-only resolver for
-Swift declarations in pinned Git commits. The broader evidence evaluator,
-provider adapters, signature verification, and runtime integrations remain
-proposals.
+document envelope and passport-local references, a read-only resolver for
+Swift declarations in pinned Git commits, and a bounded matcher for normalized
+runtime observations. Provider adapters, signature verification, authority
+policy, accepted receipts, and runtime integrations remain proposals.
 
 ## Swift validation spike
 
@@ -27,6 +27,8 @@ contract or implementation symbol exists.
 make swift-test
 make validate-example
 swift run feature-passport validate path/to/passport.json
+swift run feature-passport evaluate-observation passport.json \
+  --passport-digest sha256:expected-digest observation.json
 ```
 
 The CLI prints `valid` and exits 0 for a valid document, exits 1 with
@@ -35,6 +37,12 @@ The first validator accepts JSON input. This is an experimental subset of the
 proposed v1 contract; it is not yet a complete operational passport verifier.
 `make validate-zeusus` checks the authored Zeusus binding pilot against the
 same local contract.
+
+The observation evaluator checks exact passport/probe linkage and the probe's
+declared attribute, element, and runtime-correlation boundaries. Its
+`matched_untrusted` verdict means only that this local contract matched; it is
+not a signature-verified observation, accepted receipt, or `runtime_verified`
+claim. See the [runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md).
 
 ## Pinned source resolution
 
@@ -60,6 +68,7 @@ behavior, test execution, or provider contracts. See the
 - [ADR 0001: Swift validation stack](docs/adr/0001-swift-validation-stack.md)
 - [Passport v1 document validation profile](docs/contracts/passport-v1-validation.md)
 - [Pinned Swift source-resolution contract](docs/contracts/source-resolution.md)
+- [Runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
 - [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
 - [Zeusus passport validation evidence](docs/evidence/zeusus-passport-validation.md)
