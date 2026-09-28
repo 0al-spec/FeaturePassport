@@ -12,13 +12,16 @@ let package = Package(
         .executable(name: "feature-passport", targets: ["FeaturePassportCLI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ajevans99/swift-json-schema", exact: "0.13.2")
+        .package(url: "https://github.com/ajevans99/swift-json-schema", exact: "0.13.2"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "604.0.0")
     ],
     targets: [
         .target(
             name: "FeaturePassport",
             dependencies: [
-                .product(name: "JSONSchema", package: "swift-json-schema")
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax")
             ],
             resources: [.process("Resources")]
         ),
