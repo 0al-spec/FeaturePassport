@@ -18,7 +18,9 @@ Implementation anchors below identify the local Zeusus repository at commit
 `7e3d9d848fbca3425c2122bc76a08cc47edc09c5`. The repository name `zeusus` must be
 resolved by the deployment to its checkout or source archive; a hosted remote
 is not required. The internal Swift symbols were inspected directly in that
-revision. An automatic symbol resolver has not been implemented.
+revision. Feature Passport's Swift source resolver now resolves all four
+anchors against that pinned revision. A Zeusus local pilot checks that the
+current source and test trees match the pinned revision before resolving them.
 
 The optional SpecGraph reference identifies `ZEU-SPEC-0016` and scenario
 `ZEU-ROAD-STRATEGY-COMPOSITION-001` in workspace `zeusus`. The product spec lives
@@ -141,8 +143,13 @@ At the implementation revision, Zeusus records **21 passing
 `RoadStrokeAdapterTests`** through the open Xcode workspace, on iPad Air M3
 Simulator with iOS 18.6. The source record is
 `docs/evidence/road-stroke-routing.md`, section
-`Composition-of-strategies implementation — 2026-09-28`. This is a cited existing
-test report, not a new execution performed by Feature Passport.
+`Composition-of-strategies implementation — 2026-09-28`. Separately, the
+Zeusus local pilot ran the focused composition scenario through Swift Testing:
+one test passed with no failures, errors, or skips. Its generated diagnostic
+card, source-resolution result, and xUnit report are recorded in Zeusus at
+`docs/evidence/feature-passport-route-pilot.md`. The same pipeline is checked
+into a Zeusus GitHub Actions workflow, but Zeusus has no Git remote, so no
+hosted run is claimed.
 
 The named scenario test checks order, prior-result handoff, first-route
 selection, repeated-evaluation equality, and unchanged world state. The single
@@ -152,19 +159,21 @@ composition where every pass returns noPath.
 
 | Aspect | Pilot status |
 | --- | --- |
-| Source anchors | Manually inspected at the pinned Zeusus commit |
+| Source anchors | Four of four resolved by the Swift source resolver at the pinned Zeusus commit in a local pilot |
 | Local document validation | `make validate-zeusus` passes schema and local reference checks |
 | External contract resolution | Unresolved; spec revision/digest not pinned here |
 | Local implementation mapping | Authored in this draft; not automatically extracted |
-| Tests | Existing simulator test report referenced, not re-run |
+| Tests | Existing 21-test simulator report cited; one focused Swift Testing scenario also passed in the local pilot |
 | FP runtime probe | Proposed; not implemented |
 | Passport signature / receipt | None |
 | Production delivery or adoption | Not established |
 
 ## Next Implementation Boundary
 
-The provider-neutral envelope and local references now validate. Next add a
-Swift source resolver, a SpecGraph locator adapter, and an explicit test-report
-adapter independently. A passport with only local criteria uses the same core
-path. Only after those boundaries work should Zeusus emit the proposed runtime
-events and connect them to an explicitly configured evidence authority.
+The provider-neutral envelope and local references validate, and the Swift
+source resolver checks these four anchors. The Zeusus test card is a diagnostic
+report, not a canonical Feature Passport test-report adapter or accepted
+evidence receipt. The next independent boundaries are a SpecGraph locator
+adapter and a test-report adapter. A passport with only local criteria uses the
+same core path. Runtime events and evidence acceptance require separately
+defined instrumentation and authority.
