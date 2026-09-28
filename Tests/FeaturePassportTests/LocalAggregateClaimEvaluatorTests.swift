@@ -164,7 +164,8 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(issued.predicateProfile == "local-aggregate-claim-evaluation-v1")
         #expect(issued.signature.profile == "fp-aggregate-decision-v1-fields")
         #expect(issued.signature.profile != "JCS")
-        let data = try encodeSorted(issued)
+        let data = try issued.encoded()
+        #expect(data.count <= AggregateClaimDecision.maximumArtifactBytes)
         let report = try AggregateClaimDecisionVerifier().verify(
             decisionData: data, inputs: context.inputs, trustStore: context.decisionTrust
         )
@@ -288,6 +289,17 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(!denied.trusted)
         #expect(denied.issues.contains { $0.code == "decision_authority_untrusted" })
 
+        let oversizedTrustStore = AggregateClaimDecisionTrustStore(trustedKeys: [
+            .init(authorityID: String(repeating: "x", count: 1_000_001), keyID: "decision-key",
+                  publicKey: context.signer.publicKey.base64EncodedString(),
+                  authorizedClaimPolicyDigests: [EvidenceReceiptVerifier.sha256(fixture.policy)])
+        ])
+        let oversizedTrustReport = try AggregateClaimDecisionVerifier().verify(
+            decisionData: encodeSorted(issued), inputs: context.inputs, trustStore: oversizedTrustStore
+        )
+        #expect(!oversizedTrustReport.trusted)
+        #expect(oversizedTrustReport.issues.contains { $0.code == "decision_trust_store_invalid" })
+
         var envelope = try JSONSerialization.jsonObject(with: encodeSorted(issued)) as! [String: Any]
         envelope["signature"] = ["algorithm": "Ed25519", "profile": "fp-aggregate-decision-v1-fields",
                                   "value": Data(repeating: 0, count: 64).base64EncodedString()]
@@ -309,6 +321,31 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(report.issues.map(\.code) == ["size_limit"])
     }
 
+    @Test("Issuer refuses oversized authority identifiers before signing an unverifiable artifact")
+    func issuerRejectsOversizedIdentityFields() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let countingSigner = CallCountingDecisionSigner(wrapped: context.signer)
+        let largeID = String(repeating: "x", count: 1_000_001)
+        let authorizations = [
+            AggregateClaimDecisionAuthorization(authorityID: largeID, keyID: "decision-key",
+                publicKey: context.signer.publicKey,
+                authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests),
+            AggregateClaimDecisionAuthorization(authorityID: "decision.authority", keyID: largeID,
+                publicKey: context.signer.publicKey,
+                authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests)
+        ]
+        for authorization in authorizations {
+            do {
+                _ = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs,
+                    authorization: authorization, signer: countingSigner,
+                    evaluationTime: "2026-09-28T20:35:00Z")
+                Issue.record("Issuer returned an artifact larger than the verifier byte limit")
+            } catch { }
+            #expect(countingSigner.signCallCount == 0)
+        }
+    }
+
     @Test("A trusted not-satisfied decision records only the local predicate result")
     func notSatisfiedDecisionVerifies() throws {
         let fixture = try makeFixture(results: [.success, .failure, .success])
@@ -327,6 +364,26 @@ struct LocalAggregateClaimEvaluatorTests {
         let key: Curve25519.Signing.PrivateKey
         var publicKey: Data { key.publicKey.rawRepresentation }
         func sign(message: Data) throws -> Data { try key.signature(for: message) }
+    }
+
+    private final class CallCountingDecisionSigner: AggregateClaimDecisionSigner, @unchecked Sendable {
+        let wrapped: TestDecisionSigner
+        private let lock = NSLock()
+        private var calls = 0
+
+        init(wrapped: TestDecisionSigner) { self.wrapped = wrapped }
+        var publicKey: Data { wrapped.publicKey }
+        var signCallCount: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return calls
+        }
+        func sign(message: Data) throws -> Data {
+            lock.lock()
+            calls += 1
+            lock.unlock()
+            return try wrapped.sign(message: message)
+        }
     }
 
     private func decisionContext(_ fixture: Fixture) throws -> (
