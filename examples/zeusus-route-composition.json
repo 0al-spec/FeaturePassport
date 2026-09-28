@@ -7,7 +7,7 @@
     "title": "Deterministic route strategy composition",
     "owner": "zeusus",
     "issuer": "zeusus.contract-author",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "status": "draft"
   },
   "spec": {
@@ -45,7 +45,7 @@
       "commits": [
         {
           "repository": "zeusus",
-          "sha": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+          "sha": "09a8455e03e3047c19a3f6f33a69ba14ac3c084e",
           "role": "primary_implementation"
         }
       ],
@@ -56,11 +56,11 @@
           "anchors": [
             {
               "repository": "zeusus",
-              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "revision": "09a8455e03e3047c19a3f6f33a69ba14ac3c084e",
               "language": "swift",
               "module": "ZeususInput",
               "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
-              "symbol": "RoadRouteStrategyComposition.evaluate(in:)"
+              "symbol": "RoadRouteStrategyComposition.evaluate(in:recordingTo:)"
             }
           ],
           "uses": [
@@ -81,7 +81,7 @@
           "anchors": [
             {
               "repository": "zeusus",
-              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "revision": "09a8455e03e3047c19a3f6f33a69ba14ac3c084e",
               "language": "swift",
               "module": "ZeususInput",
               "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
@@ -95,7 +95,7 @@
           "anchors": [
             {
               "repository": "zeusus",
-              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "revision": "09a8455e03e3047c19a3f6f33a69ba14ac3c084e",
               "language": "swift",
               "module": "ZeususInput",
               "path": "Sources/ZeususInput/OrthogonalRoadRouteStrategy.swift",
@@ -109,7 +109,7 @@
           "anchors": [
             {
               "repository": "zeusus",
-              "revision": "7e3d9d848fbca3425c2122bc76a08cc47edc09c5",
+              "revision": "09a8455e03e3047c19a3f6f33a69ba14ac3c084e",
               "language": "swift",
               "module": "ZeususSimulationTests",
               "path": "Tests/ZeususSimulationTests/RoadStrokeAdapterTests.swift",
