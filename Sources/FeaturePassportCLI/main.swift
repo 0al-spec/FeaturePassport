@@ -2,15 +2,30 @@ import FeaturePassport
 import Foundation
 
 private func usage() -> Never {
-    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
+    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport evaluate-claim <passport.json> <claim-policy.json> <bundle.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
     exit(2)
+}
+
+private enum CLIInputError: Error { case sizeLimit }
+
+private func readBoundedFile(_ url: URL, maximumBytes: Int) throws -> Data {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    guard let size = attributes[.size] as? NSNumber, size.intValue <= maximumBytes else {
+        throw CLIInputError.sizeLimit
+    }
+    let data = try Data(contentsOf: url)
+    guard data.count <= maximumBytes else { throw CLIInputError.sizeLimit }
+    return data
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 guard arguments.count >= 2 else { usage() }
 
 do {
-    let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+    let passportURL = URL(fileURLWithPath: arguments[1])
+    let data = arguments[0] == "evaluate-claim"
+        ? try readBoundedFile(passportURL, maximumBytes: 10_000_000)
+        : try Data(contentsOf: passportURL)
     switch arguments[0] {
     case "validate":
         guard arguments.count == 2 else { usage() }
@@ -74,6 +89,43 @@ do {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         print(String(decoding: try encoder.encode(report), as: UTF8.self))
         if !report.trusted { exit(1) }
+    case "evaluate-claim":
+        guard arguments.count == 6 || arguments.count == 8,
+              arguments[4] == "--trust-store",
+              arguments.count == 6 || arguments[6] == "--at" else { usage() }
+        let policyData = try readBoundedFile(URL(fileURLWithPath: arguments[2]), maximumBytes: 256_000)
+        let bundleURL = URL(fileURLWithPath: arguments[3]).standardizedFileURL
+        let bundle = try LocalAggregateClaimBundle.decode(from: readBoundedFile(bundleURL, maximumBytes: 256_000))
+        let trustStore = try EvidenceReceiptTrustStore.decode(from: readBoundedFile(URL(fileURLWithPath: arguments[5]), maximumBytes: 1_000_000))
+        let verificationTime: Date
+        if arguments.count == 8 {
+            guard let parsed = EvidenceReceiptTimestamp.parseRFC3339UTC(arguments[7]) else { usage() }
+            verificationTime = parsed
+        } else {
+            verificationTime = Date()
+        }
+        var totalPairBytes = 0
+        let pairs = try bundle.pairs.map { reference -> LocalAggregateClaimPair in
+            func resolve(_ path: String) -> URL {
+                URL(fileURLWithPath: path, relativeTo: bundleURL.deletingLastPathComponent()).standardizedFileURL
+            }
+            let observationData = try readBoundedFile(resolve(reference.observation), maximumBytes: 10_000_000)
+            let receiptData = try readBoundedFile(resolve(reference.receipt), maximumBytes: 256_000)
+            totalPairBytes += observationData.count + receiptData.count
+            guard totalPairBytes <= 64_000_000 else { throw CLIInputError.sizeLimit }
+            return LocalAggregateClaimPair(
+                observationData: observationData,
+                receiptData: receiptData
+            )
+        }
+        let report = try LocalAggregateClaimEvaluator().evaluate(
+            passportData: data, policyData: policyData, pairs: pairs,
+            trustStore: trustStore, verificationTime: verificationTime
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        print(String(decoding: try encoder.encode(report), as: UTF8.self))
+        if !report.satisfied { exit(1) }
     default:
         usage()
     }
