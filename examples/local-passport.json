@@ -1,0 +1,37 @@
+{
+  "artifact_kind": "feature_passport",
+  "schema_version": 1,
+  "metadata": {
+    "feature_id": "feature.example.local",
+    "passport_id": "fp.example.local",
+    "version": "0.1.0",
+    "status": "draft",
+    "issuer": "example.author"
+  },
+  "spec": {
+    "intent": {
+      "summary": "Show a local example without an external contract provider.",
+      "acceptance_criteria": [
+        { "id": "AC-1", "text": "The example validates locally." }
+      ]
+    },
+    "implementation": {
+      "elements": [
+        { "id": "validator", "role": "policy" }
+      ],
+      "bindings": [
+        {
+          "id": "local-binding",
+          "acceptance_criteria_ids": ["AC-1"],
+          "element_ids": ["validator"]
+        }
+      ]
+    },
+    "evidence": { "required_level": "L0", "probes": [] },
+    "privacy": {
+      "pii_allowed": false,
+      "retention_days": 30,
+      "raw_payload_storage": false
+    }
+  }
+}
