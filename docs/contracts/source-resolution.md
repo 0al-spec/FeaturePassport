@@ -11,6 +11,8 @@ repository names to local Git checkout URLs. The CLI requires one or more
 fetches a remote, or reads source from the working tree. Revision must be a
 full 40- or 64-digit Git object ID whose object type is `commit`. Path must be
 relative, without traversal; it must identify a blob in that commit.
+Every Git subprocess disables local replacement refs, so `git replace` cannot
+substitute a different commit or blob for the authored revision.
 
 The Swift parser indexes nominal types and functions, including declarations
 in extensions, by qualified type name and external parameter labels. Exact

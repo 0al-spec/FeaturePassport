@@ -203,7 +203,7 @@ private func git(_ arguments: [String], in checkout: URL) throws -> GitOutput {
     #if os(macOS) || os(Linux)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-    process.arguments = ["-C", checkout.path] + arguments
+    process.arguments = ["--no-replace-objects", "-C", checkout.path] + arguments
     let output = Pipe()
     process.standardOutput = output
     process.standardError = FileHandle.nullDevice

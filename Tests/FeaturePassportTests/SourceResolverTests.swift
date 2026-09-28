@@ -42,6 +42,27 @@ struct SourceResolverTests {
         }
     }
 
+    @Test("Pinned commit ignores local Git replacement refs")
+    func pinnedCommitIgnoresReplacementRefs() throws {
+        try withRepository(source: "struct Route { func original() {} }\n") { root, revision in
+            let file = root.appendingPathComponent("Route.swift")
+            try "struct Route { func replacement() {} }\n"
+                .write(to: file, atomically: true, encoding: .utf8)
+            _ = try git(["add", "Route.swift"], in: root)
+            _ = try git(["-c", "user.name=Resolver Test", "-c", "user.email=resolver@example.invalid",
+                         "commit", "-qm", "replacement"], in: root)
+            let replacement = try git(["rev-parse", "HEAD"], in: root)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            _ = try git(["replace", revision, replacement], in: root)
+
+            let resolver = SourceResolver(repositories: ["demo": root])
+            let original = try resolver.resolve(passport(revision: revision, symbol: "Route.original()"))
+            let substituted = try resolver.resolve(passport(revision: revision, symbol: "Route.replacement()"))
+            #expect(original.anchors.first?.status == .resolved)
+            #expect(substituted.anchors.first?.status == .symbolNotFound)
+        }
+    }
+
     @Test("A duplicate declaration is ambiguous and a missing one stays unresolved")
     func ambiguityAndMissingSymbol() throws {
         try withRepository(source: "struct Route { func evaluate() {} }\nextension Route { func evaluate() {} }\n") { root, revision in
