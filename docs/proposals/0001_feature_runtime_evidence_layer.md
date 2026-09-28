@@ -878,7 +878,8 @@ dropped, retained for a shorter period, or not yet backfilled.
 
 Minimum claim for "commit reached production":
 
-- commit is linked to request;
+- commit is listed in the exact feature/passport version's
+  `spec.implementation.commits`; no external request is required;
 - artifact attestation includes commit;
 - release or deploy record references artifact;
 - at least one production runtime emitted `fp.release_seen` for that
