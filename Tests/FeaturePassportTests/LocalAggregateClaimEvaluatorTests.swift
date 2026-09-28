@@ -152,6 +152,217 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(overflowReport.issues.contains { $0.code == "sequence_invalid" })
     }
 
+    @Test("An authorized signed decision verifies only after exact input binding and fresh evaluation")
+    func signedDecisionVerifies() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let issued = try AggregateClaimDecisionIssuer().issue(
+            inputs: context.inputs, authorization: context.authorization,
+            signer: context.signer, evaluationTime: "2026-09-28T20:35:00Z"
+        )
+        #expect(issued.decision == .accepted)
+        #expect(issued.predicateProfile == "local-aggregate-claim-evaluation-v1")
+        #expect(issued.signature.profile == "fp-aggregate-decision-v1-fields")
+        #expect(issued.signature.profile != "JCS")
+        let data = try encodeSorted(issued)
+        let report = try AggregateClaimDecisionVerifier().verify(
+            decisionData: data, inputs: context.inputs, trustStore: context.decisionTrust
+        )
+        #expect(report.trusted)
+        #expect(report.decision == .accepted)
+        #expect(report.claimID == "claim.demo.route")
+        let envelope = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(envelope["accepted_claims"] == nil)
+        #expect(envelope["runtime_verified"] == nil)
+    }
+
+    @Test("Fixed inputs, evaluation time, and Ed25519 key produce the same decision identity")
+    func signedDecisionIsRepeatable() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let issuer = AggregateClaimDecisionIssuer()
+        let first = try issuer.issue(inputs: context.inputs, authorization: context.authorization,
+            signer: context.signer, evaluationTime: "2026-09-28T20:35:00Z")
+        let second = try issuer.issue(inputs: context.inputs, authorization: context.authorization,
+            signer: context.signer, evaluationTime: "2026-09-28T20:35:00Z")
+        #expect(first.decisionDigest == second.decisionDigest)
+        let firstPayload = AggregateClaimDecisionSigningProfile.payload(for: first)
+        let secondPayload = AggregateClaimDecisionSigningProfile.payload(for: second)
+        #expect(firstPayload == secondPayload)
+        let authorizedPublicKey = Data(base64Encoded: context.decisionTrust.trustedKeys[0].publicKey)!
+        #expect(context.signer.publicKey == authorizedPublicKey)
+        let publicKey = try Curve25519.Signing.PublicKey(rawRepresentation: context.signer.publicKey)
+        #expect(publicKey.isValidSignature(Data(base64Encoded: first.signature.value)!, for: firstPayload))
+        #expect(publicKey.isValidSignature(Data(base64Encoded: second.signature.value)!, for: secondPayload))
+        let firstReport = try AggregateClaimDecisionVerifier().verify(decisionData: encodeSorted(first),
+            inputs: context.inputs, trustStore: context.decisionTrust)
+        let secondReport = try AggregateClaimDecisionVerifier().verify(decisionData: encodeSorted(second),
+            inputs: context.inputs, trustStore: context.decisionTrust)
+        #expect(firstReport.trusted)
+        #expect(secondReport.trusted)
+    }
+
+    @Test("Every exact input byte stream is bound by the signed decision")
+    func decisionRejectsTamperedInputs() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let decision = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs,
+            authorization: context.authorization, signer: context.signer,
+            evaluationTime: "2026-09-28T20:35:00Z")
+        let decisionData = try encodeSorted(decision)
+        var variants: [AggregateClaimDecisionInputs] = []
+
+        variants.append(.init(passportData: fixture.passport + Data([0x20]),
+            claimPolicyData: context.inputs.claimPolicyData, bundleData: context.inputs.bundleData,
+            receiptTrustStoreData: context.inputs.receiptTrustStoreData, pairs: context.inputs.pairs))
+        variants.append(.init(passportData: fixture.passport,
+            claimPolicyData: fixture.policy + Data([0x20]), bundleData: context.inputs.bundleData,
+            receiptTrustStoreData: context.inputs.receiptTrustStoreData, pairs: context.inputs.pairs))
+        variants.append(.init(passportData: fixture.passport, claimPolicyData: fixture.policy,
+            bundleData: context.inputs.bundleData + Data([0x20]),
+            receiptTrustStoreData: context.inputs.receiptTrustStoreData, pairs: context.inputs.pairs))
+        variants.append(.init(passportData: fixture.passport, claimPolicyData: fixture.policy,
+            bundleData: context.inputs.bundleData,
+            receiptTrustStoreData: context.inputs.receiptTrustStoreData + Data([0x20]), pairs: context.inputs.pairs))
+        var observationPairs = context.inputs.pairs
+        observationPairs[0] = .init(observationPath: observationPairs[0].observationPath,
+            receiptPath: observationPairs[0].receiptPath,
+            observationData: observationPairs[0].observationData + Data([0x20]),
+            receiptData: observationPairs[0].receiptData)
+        variants.append(.init(passportData: fixture.passport, claimPolicyData: fixture.policy,
+            bundleData: context.inputs.bundleData, receiptTrustStoreData: context.inputs.receiptTrustStoreData,
+            pairs: observationPairs))
+        var receiptPairs = context.inputs.pairs
+        receiptPairs[0] = .init(observationPath: receiptPairs[0].observationPath,
+            receiptPath: receiptPairs[0].receiptPath, observationData: receiptPairs[0].observationData,
+            receiptData: receiptPairs[0].receiptData + Data([0x20]))
+        variants.append(.init(passportData: fixture.passport, claimPolicyData: fixture.policy,
+            bundleData: context.inputs.bundleData, receiptTrustStoreData: context.inputs.receiptTrustStoreData,
+            pairs: receiptPairs))
+
+        for changedInputs in variants {
+            let report = try AggregateClaimDecisionVerifier().verify(
+                decisionData: decisionData, inputs: changedInputs, trustStore: context.decisionTrust
+            )
+            #expect(!report.trusted)
+            #expect(report.issues.contains { $0.code == "decision_input_mismatch" })
+        }
+    }
+
+    @Test("Policy authorization and signing key identity are checked before issuance")
+    func unauthorizedPolicyAndKeyCannotIssue() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let wrongPolicy = AggregateClaimDecisionAuthorization(authorityID: "decision.authority",
+            keyID: "decision-key", publicKey: context.signer.publicKey,
+            authorizedClaimPolicyDigests: ["sha256:" + String(repeating: "0", count: 64)])
+        do {
+            _ = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs, authorization: wrongPolicy,
+                signer: context.signer, evaluationTime: "2026-09-28T20:35:00Z")
+            Issue.record("Issuer accepted a policy digest absent from its authorization allowlist")
+        } catch { }
+        let wrongKey = AggregateClaimDecisionAuthorization(authorityID: "decision.authority",
+            keyID: "decision-key", publicKey: Data(repeating: 0, count: 32),
+            authorizedClaimPolicyDigests: [EvidenceReceiptVerifier.sha256(fixture.policy)])
+        do {
+            _ = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs, authorization: wrongKey,
+                signer: context.signer, evaluationTime: "2026-09-28T20:35:00Z")
+            Issue.record("Issuer accepted a signer key different from its authorization")
+        } catch { }
+    }
+
+    @Test("Decision trust authority must allowlist the exact policy and signature")
+    func decisionVerifierRequiresAuthorizedKey() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let issued = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs,
+            authorization: context.authorization, signer: context.signer,
+            evaluationTime: "2026-09-28T20:35:00Z")
+        let deniedTrust = AggregateClaimDecisionTrustStore(trustedKeys: [
+            .init(authorityID: "decision.authority", keyID: "decision-key",
+                  publicKey: context.signer.publicKey.base64EncodedString(),
+                  authorizedClaimPolicyDigests: ["sha256:" + String(repeating: "0", count: 64)])
+        ])
+        let denied = try AggregateClaimDecisionVerifier().verify(decisionData: encodeSorted(issued),
+            inputs: context.inputs, trustStore: deniedTrust)
+        #expect(!denied.trusted)
+        #expect(denied.issues.contains { $0.code == "decision_authority_untrusted" })
+
+        var envelope = try JSONSerialization.jsonObject(with: encodeSorted(issued)) as! [String: Any]
+        envelope["signature"] = ["algorithm": "Ed25519", "profile": "fp-aggregate-decision-v1-fields",
+                                  "value": Data(repeating: 0, count: 64).base64EncodedString()]
+        let tamperedSignature = try JSONSerialization.data(withJSONObject: envelope)
+        let invalid = try AggregateClaimDecisionVerifier().verify(decisionData: tamperedSignature,
+            inputs: context.inputs, trustStore: context.decisionTrust)
+        #expect(!invalid.trusted)
+        #expect(invalid.issues.contains { $0.code == "decision_signature_invalid" })
+    }
+
+    @Test("A trusted not-satisfied decision records only the local predicate result")
+    func notSatisfiedDecisionVerifies() throws {
+        let fixture = try makeFixture(results: [.success, .failure, .success])
+        let context = try decisionContext(fixture)
+        let issued = try AggregateClaimDecisionIssuer().issue(inputs: context.inputs,
+            authorization: context.authorization, signer: context.signer,
+            evaluationTime: "2026-09-28T20:35:00Z")
+        #expect(issued.decision == .notSatisfied)
+        let report = try AggregateClaimDecisionVerifier().verify(decisionData: encodeSorted(issued),
+            inputs: context.inputs, trustStore: context.decisionTrust)
+        #expect(report.trusted)
+        #expect(report.decision == .notSatisfied)
+    }
+
+    private struct TestDecisionSigner: AggregateClaimDecisionSigner {
+        let key: Curve25519.Signing.PrivateKey
+        var publicKey: Data { key.publicKey.rawRepresentation }
+        func sign(message: Data) throws -> Data { try key.signature(for: message) }
+    }
+
+    private func decisionContext(_ fixture: Fixture) throws -> (
+        inputs: AggregateClaimDecisionInputs,
+        signer: TestDecisionSigner,
+        authorization: AggregateClaimDecisionAuthorization,
+        decisionTrust: AggregateClaimDecisionTrustStore
+    ) {
+        let bundle = LocalAggregateClaimBundle(artifactKind: "local_aggregate_claim_bundle", schemaVersion: 1,
+            pairs: fixture.pairs.enumerated().map { index, _ in
+                .init(observation: "observations/\(index).json", receipt: "receipts/\(index).json")
+            })
+        let bundleEncoder = JSONEncoder()
+        bundleEncoder.outputFormatting = [.sortedKeys]
+        let bundleData = try bundleEncoder.encode(bundle)
+        let references = try LocalAggregateClaimBundle.decode(from: bundleData).pairs
+        let inputPairs = fixture.pairs.enumerated().map { index, pair in
+            AggregateClaimDecisionInputs.Pair(observationPath: references[index].observation,
+                receiptPath: references[index].receipt, observationData: pair.observationData,
+                receiptData: pair.receiptData)
+        }
+        let receiptStoreEncoder = JSONEncoder()
+        receiptStoreEncoder.outputFormatting = [.sortedKeys]
+        let receiptTrustData = try receiptStoreEncoder.encode(fixture.trustStore)
+        let inputs = AggregateClaimDecisionInputs(passportData: fixture.passport,
+            claimPolicyData: fixture.policy, bundleData: bundleData,
+            receiptTrustStoreData: receiptTrustData, pairs: inputPairs)
+        let key = Curve25519.Signing.PrivateKey()
+        let signer = TestDecisionSigner(key: key)
+        let policyDigest = EvidenceReceiptVerifier.sha256(fixture.policy)
+        let authorization = AggregateClaimDecisionAuthorization(authorityID: "decision.authority",
+            keyID: "decision-key", publicKey: signer.publicKey,
+            authorizedClaimPolicyDigests: [policyDigest])
+        let decisionTrust = AggregateClaimDecisionTrustStore(trustedKeys: [
+            .init(authorityID: "decision.authority", keyID: "decision-key",
+                  publicKey: key.publicKey.rawRepresentation.base64EncodedString(),
+                  authorizedClaimPolicyDigests: [policyDigest])
+        ])
+        return (inputs, signer, authorization, decisionTrust)
+    }
+
+    private func encodeSorted<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(value)
+    }
+
     private struct Fixture {
         let passport: Data
         let policy: Data
