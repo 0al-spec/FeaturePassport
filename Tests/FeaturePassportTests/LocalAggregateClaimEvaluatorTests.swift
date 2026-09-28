@@ -340,11 +340,18 @@ struct LocalAggregateClaimEvaluatorTests {
         let context = try decisionContext(fixture)
         let countingSigner = CallCountingDecisionSigner(wrapped: context.signer)
         let largeID = String(repeating: "x", count: 1_000_001)
+        let overProfileID = String(repeating: "y", count: 129)
         let authorizations = [
             AggregateClaimDecisionAuthorization(authorityID: largeID, keyID: "decision-key",
                 publicKey: context.signer.publicKey,
                 authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests),
             AggregateClaimDecisionAuthorization(authorityID: "decision.authority", keyID: largeID,
+                publicKey: context.signer.publicKey,
+                authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests),
+            AggregateClaimDecisionAuthorization(authorityID: overProfileID, keyID: "decision-key",
+                publicKey: context.signer.publicKey,
+                authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests),
+            AggregateClaimDecisionAuthorization(authorityID: "decision.authority", keyID: overProfileID,
                 publicKey: context.signer.publicKey,
                 authorizedClaimPolicyDigests: context.authorization.authorizedClaimPolicyDigests)
         ]

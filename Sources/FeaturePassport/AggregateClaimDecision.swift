@@ -253,8 +253,8 @@ public struct AggregateClaimDecisionIssuer: Sendable {
         try AggregateClaimDecisionVerifier.validateInputs(inputs)
         let policyDigest = EvidenceReceiptVerifier.sha256(inputs.claimPolicyData)
         guard !authorization.authorityID.isEmpty, !authorization.keyID.isEmpty,
-              authorization.authorityID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes,
-              authorization.keyID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes,
+              authorization.authorityID.utf8.count <= 128,
+              authorization.keyID.utf8.count <= 128,
               authorization.publicKey.count == 32,
               authorization.authorizedClaimPolicyDigests.count <= 1024,
               authorization.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
