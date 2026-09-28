@@ -32,6 +32,8 @@ The CLI prints `valid` and exits 0 for a valid document, exits 1 with
 diagnostics for invalid documents, and exits 2 for invocation or file errors.
 The first validator accepts JSON input. This is an experimental subset of the
 proposed v1 contract; it is not yet a complete operational passport verifier.
+`make validate-zeusus` checks the authored Zeusus binding pilot against the
+same local contract.
 
 ## Documents
 
@@ -41,5 +43,6 @@ proposed v1 contract; it is not yet a complete operational passport verifier.
 - [Passport v1 document validation profile](docs/contracts/passport-v1-validation.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
 - [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
+- [Zeusus passport validation evidence](docs/evidence/zeusus-passport-validation.md)
 
 Run `make test` to check the Swift package and repository documentation.

@@ -1,4 +1,4 @@
-.PHONY: markdown-lint swift-test test validate-example validate-examples
+.PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus
 
 markdown-lint:
 	npx --yes markdownlint-cli2 --no-globs AGENTS.md README.md 'docs/**/*.md'
@@ -13,3 +13,7 @@ validate-example: validate-examples
 validate-examples:
 	swift run feature-passport validate examples/local-passport.json
 	swift run feature-passport validate examples/invoice-passport-schema-fixture.json
+	$(MAKE) validate-zeusus
+
+validate-zeusus:
+	swift run feature-passport validate examples/zeusus-route-composition.json
