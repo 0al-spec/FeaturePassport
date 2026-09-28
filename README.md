@@ -10,9 +10,11 @@ artifacts, runtime probes, privacy boundaries, and accepted evidence receipts.
 
 The repository contains an experimental Swift validator for the passport
 document envelope and passport-local references, a read-only resolver for
-Swift declarations in pinned Git commits, and a bounded matcher for normalized
-runtime observations. Provider adapters, signature verification, authority
-policy, accepted receipts, and runtime integrations remain proposals.
+Swift declarations in pinned Git commits, a bounded matcher for normalized
+runtime observations, and a bounded verifier for signed observation receipts
+against a caller-supplied offline trust store. Production receipt issuance,
+general authority-policy services, claim acceptance, provider adapters, and
+runtime integrations remain proposals.
 
 ## Swift validation spike
 
