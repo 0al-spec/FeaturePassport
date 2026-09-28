@@ -1,7 +1,7 @@
 import Foundation
 import JSONSchema
 
-public struct ValidationIssue: Equatable, Sendable {
+public struct ValidationIssue: Codable, Equatable, Sendable {
     public let code: String
     public let message: String
 

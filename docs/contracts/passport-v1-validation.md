@@ -77,7 +77,8 @@ future work.
 ## Deferred checks
 
 - Verify issuer signatures and canonical JSON digests.
-- Resolve contract locators and source anchors against pinned revisions.
+- Resolve provider contract locators. Pinned Swift source anchors can now be
+  inspected by the separate read-only resolver; other languages remain open.
 - Validate observation and receipt artifact schemas.
 - Evaluate required evidence levels, probe conditions, adoption thresholds,
   privacy handling, and authority-issued receipts.

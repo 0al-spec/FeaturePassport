@@ -1,4 +1,6 @@
-.PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus
+.PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus resolve-zeusus
+
+ZEUSUS_CHECKOUT ?= ../../Zeusus
 
 markdown-lint:
 	npx --yes markdownlint-cli2 --no-globs AGENTS.md README.md 'docs/**/*.md'
@@ -17,3 +19,6 @@ validate-examples:
 
 validate-zeusus:
 	swift run feature-passport validate examples/zeusus-route-composition.json
+
+resolve-zeusus:
+	swift run feature-passport resolve-sources examples/zeusus-route-composition.json --repository zeusus=$(abspath $(ZEUSUS_CHECKOUT))
