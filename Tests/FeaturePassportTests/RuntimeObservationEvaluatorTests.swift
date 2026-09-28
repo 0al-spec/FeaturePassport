@@ -55,6 +55,22 @@ struct RuntimeObservationEvaluatorTests {
         #expect(evaluation.issues.contains { $0.code == "missing_observation_field" })
     }
 
+    @Test("Delivery provenance survives normalized observation decoding")
+    func deliveryProvenanceRoundTrips() throws {
+        var observation = try JSONSerialization.jsonObject(with: observationData()) as! [String: Any]
+        observation["delivery"] = [
+            "environment": "production", "platform": "ios", "git_sha": "abc123",
+            "artifact_digest": "sha256:artifact", "release_id": "release-4", "build_number": "4"
+        ]
+        let decoded = try JSONDecoder().decode(RuntimeObservation.self, from: JSONSerialization.data(withJSONObject: observation))
+        let encoded = try JSONEncoder().encode(decoded)
+        let delivery = try #require((JSONSerialization.jsonObject(with: encoded) as? [String: Any])?["delivery"] as? [String: Any])
+        #expect(delivery["git_sha"] as? String == "abc123")
+        #expect(delivery["artifact_digest"] as? String == "sha256:artifact")
+        #expect(delivery["release_id"] as? String == "release-4")
+        #expect(delivery["build_number"] as? String == "4")
+    }
+
     private func evaluate(
         digest: String = "sha256:abc",
         event: String = "fp.feature.code_path.executed",

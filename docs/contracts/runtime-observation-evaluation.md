@@ -14,7 +14,11 @@ The observation uses the RFC v1 envelope: `artifact_kind`, `schema_version`,
 `event_name`, exact `feature_passport` identity (`feature_id`, `passport_id`,
 `version`, `digest`, `probe_id`), `delivery`, optional `runtime`,
 `observation`, and `integrity`. Its payload attributes are string-valued in this
-initial SDK model. The implementation element ID is optional.
+initial SDK model. The implementation element ID is optional. Optional
+`delivery.git_sha`, `artifact_digest`, `release_id`, and `build_number` values
+are retained during decode/encode so the event preserves its source/build
+boundary; this matcher does not verify them against an attestation or passport
+artifact.
 
 The evaluator validates the passport with the existing local validator, then
 checks exact feature/passport/version/digest identity, declared probe ID, event

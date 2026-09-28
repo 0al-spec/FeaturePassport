@@ -20,6 +20,18 @@ public struct RuntimeObservation: Codable, Equatable, Sendable {
     public struct Delivery: Codable, Equatable, Sendable {
         public let environment: String
         public let platform: String
+        public let gitSHA: String?
+        public let artifactDigest: String?
+        public let releaseID: String?
+        public let buildNumber: String?
+
+        enum CodingKeys: String, CodingKey {
+            case environment, platform
+            case gitSHA = "git_sha"
+            case artifactDigest = "artifact_digest"
+            case releaseID = "release_id"
+            case buildNumber = "build_number"
+        }
     }
 
     public struct Runtime: Codable, Equatable, Sendable {
