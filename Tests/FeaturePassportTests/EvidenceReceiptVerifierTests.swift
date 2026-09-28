@@ -5,6 +5,13 @@ import Testing
 
 @Suite("Signed observation receipt verification")
 struct EvidenceReceiptVerifierTests {
+    @Test("UTC timestamp parser rejects normalized invalid calendar and clock values")
+    func rejectsInvalidTimestampComponents() {
+        #expect(EvidenceReceiptTimestamp.parseRFC3339UTC("2026-02-30T20:00:00Z") == nil)
+        #expect(EvidenceReceiptTimestamp.parseRFC3339UTC("2026-09-28T24:00:00Z") == nil)
+        #expect(EvidenceReceiptTimestamp.parseRFC3339UTC("2026-09-28T20:00:00Z") != nil)
+    }
+
     @Test("An allowed Ed25519 authority receipt verifies as a scoped observation acceptance")
     func verifiesTrustedReceipt() throws {
         let fixture = try makeFixture()

@@ -61,12 +61,7 @@ do {
         let verificationTime: Date
         if arguments.count == 8 {
             let timestamp = arguments[7]
-            let timestampPattern = #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$"#
-            guard timestamp.range(of: timestampPattern, options: .regularExpression) != nil else { usage() }
-            let formatter = ISO8601DateFormatter()
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            formatter.formatOptions = timestamp.contains(".") ? [.withInternetDateTime, .withFractionalSeconds] : [.withInternetDateTime]
-            guard let parsed = formatter.date(from: timestamp), timestamp.hasSuffix("Z") else { usage() }
+            guard let parsed = EvidenceReceiptTimestamp.parseRFC3339UTC(timestamp) else { usage() }
             verificationTime = parsed
         } else {
             verificationTime = Date()

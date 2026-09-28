@@ -202,12 +202,12 @@ public struct EvidenceReceiptVerifier: Sendable {
             return rejected([.init(code: "untrusted_issuer_or_policy", message: "Authority, policy digest, or key ID is not present in the explicit trust allowlist")], receipt: receipt)
         }
 
-        guard let acceptedAt = Timestamp.parse(receipt.timestamps.acceptedAt),
-              let validFrom = Timestamp.parse(receipt.timestamps.validFrom),
-              let validUntil = Timestamp.parse(receipt.timestamps.validUntil),
-              let observedAt = Timestamp.parse(receipt.observation.occurredAt),
-              let keyValidFrom = Timestamp.parse(key.validFrom),
-              let keyValidUntil = Timestamp.parse(key.validUntil) else {
+        guard let acceptedAt = EvidenceReceiptTimestamp.parseRFC3339UTC(receipt.timestamps.acceptedAt),
+              let validFrom = EvidenceReceiptTimestamp.parseRFC3339UTC(receipt.timestamps.validFrom),
+              let validUntil = EvidenceReceiptTimestamp.parseRFC3339UTC(receipt.timestamps.validUntil),
+              let observedAt = EvidenceReceiptTimestamp.parseRFC3339UTC(receipt.observation.occurredAt),
+              let keyValidFrom = EvidenceReceiptTimestamp.parseRFC3339UTC(key.validFrom),
+              let keyValidUntil = EvidenceReceiptTimestamp.parseRFC3339UTC(key.validUntil) else {
             return rejected([.init(code: "invalid_timestamp", message: "Receipt and trust-store timestamps must use supported RFC 3339 UTC syntax")], receipt: receipt)
         }
         let skew = TimeInterval(trustStore.clockSkewSeconds)
@@ -276,7 +276,7 @@ public struct EvidenceReceiptVerifier: Sendable {
         for key in trustStore.trustedKeys {
             if [key.authorityID, key.policyID, key.policyVersion, key.policyDigest, key.keyID, key.publicKey].contains(where: \.isEmpty) ||
                 !Self.isSHA256Digest(key.policyDigest) || Data(base64Encoded: key.publicKey)?.count != 32 ||
-                Timestamp.parse(key.validFrom) == nil || Timestamp.parse(key.validUntil) == nil {
+                EvidenceReceiptTimestamp.parseRFC3339UTC(key.validFrom) == nil || EvidenceReceiptTimestamp.parseRFC3339UTC(key.validUntil) == nil {
                 issues.append(.init(code: "invalid_trust_key", message: "Trusted key entry is incomplete or malformed: \(key.keyID)"))
             }
         }
@@ -509,13 +509,41 @@ private struct JSONMemberUniqueness {
     }
 }
 
-private enum Timestamp {
-    static func parse(_ value: String) -> Date? {
+public enum EvidenceReceiptTimestamp {
+    /// Parses the profile's RFC 3339 UTC timestamps without Foundation's lenient normalization.
+    public static func parseRFC3339UTC(_ value: String) -> Date? {
         let pattern = #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$"#
         guard value.range(of: pattern, options: .regularExpression) != nil else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.formatOptions = value.contains(".") ? [.withInternetDateTime, .withFractionalSeconds] : [.withInternetDateTime]
-        return formatter.date(from: value)
+        let dateText = String(value.prefix(19))
+        let components = dateText.split(whereSeparator: { "-T:".contains($0) }).compactMap { Int($0) }
+        guard components.count == 6 else { return nil }
+        let year = components[0], month = components[1], day = components[2]
+        let hour = components[3], minute = components[4], second = components[5]
+        guard
+              (1...12).contains(month), (1...31).contains(day), (0...23).contains(hour),
+              (0...59).contains(minute), (0...59).contains(second) else { return nil }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var requested = DateComponents()
+        requested.calendar = calendar
+        requested.timeZone = calendar.timeZone
+        requested.year = year
+        requested.month = month
+        requested.day = day
+        requested.hour = hour
+        requested.minute = minute
+        requested.second = second
+        guard let date = calendar.date(from: requested) else { return nil }
+        let roundTrip = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        guard roundTrip.year == year, roundTrip.month == month, roundTrip.day == day,
+              roundTrip.hour == hour, roundTrip.minute == minute, roundTrip.second == second else { return nil }
+
+        if let decimal = value.firstIndex(of: ".") {
+            let fraction = value[value.index(after: decimal)..<value.index(before: value.endIndex)]
+            guard let digits = Double("0." + fraction) else { return nil }
+            return date.addingTimeInterval(digits)
+        }
+        return date
     }
 }
