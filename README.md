@@ -54,6 +54,14 @@ replay uniqueness, successful execution, or a feature outcome. The receipt
 profile uses versioned length-prefixed signing fields and deliberately does
 not claim JCS conformance. See the [signed observation receipt profile](docs/contracts/signed-observation-receipt-v1.md).
 
+`evaluate-claim` reruns the receipt verifier for every observation/receipt pair
+and evaluates a versioned local predicate over exact passport identity, one
+operation, an identical source/build tuple, an explicit per-probe result
+allowlist, environment, receipt policy, and allowlisted semantic sequence
+values. Its unsigned `satisfied` result does not establish `runtime_verified`,
+production evidence, or replay protection.
+See the [local aggregate claim evaluation profile](docs/contracts/local-aggregate-claim-evaluation-v1.md).
+
 ## Pinned source resolution
 
 ```sh
@@ -80,6 +88,7 @@ behavior, test execution, or provider contracts. See the
 - [Pinned Swift source-resolution contract](docs/contracts/source-resolution.md)
 - [Runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md)
 - [Signed observation receipt verifier v1](docs/contracts/signed-observation-receipt-v1.md)
+- [Local aggregate claim evaluation v1](docs/contracts/local-aggregate-claim-evaluation-v1.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
 - [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
 - [Zeusus passport validation evidence](docs/evidence/zeusus-passport-validation.md)

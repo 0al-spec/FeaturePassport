@@ -418,7 +418,7 @@ private enum TrustStoreShapeError: Error {
 
 /// Foundation dictionaries erase duplicate names; reject duplicates before
 /// decoding so the signed profile has one interpretation for every object.
-private struct JSONMemberUniqueness {
+struct JSONMemberUniqueness {
     private let bytes: [UInt8]
     private var index = 0
     private var nestingDepth = 0
