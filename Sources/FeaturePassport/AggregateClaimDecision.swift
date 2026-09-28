@@ -298,6 +298,9 @@ public struct AggregateClaimDecisionVerifier: Sendable {
 
     public func verify(decisionData: Data, inputs: AggregateClaimDecisionInputs,
                        trustStore: AggregateClaimDecisionTrustStore) throws -> AggregateClaimDecisionVerificationReport {
+        guard decisionData.count <= 1_000_000 else {
+            return Self.rejected("size_limit", "Decision artifact exceeds the 1 MB verifier input limit")
+        }
         try Self.validateInputs(inputs)
         guard Self.isValid(trustStore: trustStore) else {
             return Self.rejected("decision_trust_store_invalid", "Decision authority trust configuration is malformed or ambiguous")

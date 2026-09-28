@@ -298,6 +298,17 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(invalid.issues.contains { $0.code == "decision_signature_invalid" })
     }
 
+    @Test("Direct verifier rejects an oversized decision before parsing JSON")
+    func oversizedDecisionFailsBeforeParsing() throws {
+        let fixture = try makeFixture()
+        let context = try decisionContext(fixture)
+        let oversized = Data(repeating: 0x20, count: 1_000_001)
+        let report = try AggregateClaimDecisionVerifier().verify(decisionData: oversized,
+            inputs: context.inputs, trustStore: context.decisionTrust)
+        #expect(!report.trusted)
+        #expect(report.issues.map(\.code) == ["size_limit"])
+    }
+
     @Test("A trusted not-satisfied decision records only the local predicate result")
     func notSatisfiedDecisionVerifies() throws {
         let fixture = try makeFixture(results: [.success, .failure, .success])
