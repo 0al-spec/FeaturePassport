@@ -1,0 +1,153 @@
+{
+  "artifact_kind": "feature_passport",
+  "schema_version": 1,
+  "metadata": {
+    "feature_id": "feature.invoice.smart_summary",
+    "passport_id": "fp.invoice.smart_summary",
+    "title": "Smart invoice summary",
+    "owner": "ios-product",
+    "version": "0.1.0",
+    "status": "sealed",
+    "issued_at": "2026-05-25T12:00:00Z",
+    "issuer": "product.release-authority"
+  },
+  "spec": {
+    "intent": {
+      "summary": "Show an AI-generated summary before invoice payment.",
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "text": "Summary block is visible on invoice screen."
+        },
+        {
+          "id": "AC-2",
+          "text": "User can expand summary details."
+        },
+        {
+          "id": "AC-3",
+          "text": "Backend records successful summary generation."
+        }
+      ]
+    },
+    "contract_refs": [
+      {
+        "id": "invoice-summary-requirement",
+        "relation": "implements",
+        "provider": "repository-document",
+        "locator": {
+          "repository": "product-ios",
+          "path": "requirements/invoice-summary.md",
+          "revision": "example-immutable-commit",
+          "selector": "smart-summary"
+        }
+      }
+    ],
+    "implementation": {
+      "repositories": [
+        {
+          "name": "product-ios",
+          "url": "git@github.com:org/product-ios.git"
+        }
+      ],
+      "pull_requests": [
+        {
+          "repository": "product-ios",
+          "number": 1842
+        }
+      ],
+      "commits": [
+        {
+          "repository": "product-ios",
+          "sha": "8ae73a0f...",
+          "role": "primary_implementation"
+        }
+      ]
+    },
+    "delivery": {
+      "artifacts": [
+        {
+          "platform": "ios",
+          "artifact_type": "ipa",
+          "digest": "sha256:abc123...",
+          "build_number": "134",
+          "provenance_ref": "slsa://..."
+        }
+      ],
+      "production_environments": [
+        "production"
+      ]
+    },
+    "runtime": {
+      "required_resource_attributes": {
+        "service.name": "product-ios",
+        "service.version": "2.7.0+134",
+        "deployment.environment.name": "production"
+      }
+    },
+    "evidence": {
+      "required_level": "L8",
+      "probes": [
+        {
+          "id": "invoice_summary.release_seen.v1",
+          "event": "fp.release_seen",
+          "level": "L4",
+          "required": true
+        },
+        {
+          "id": "invoice_summary.visible.v1",
+          "event": "fp.feature.exposed",
+          "level": "L5",
+          "required": true,
+          "required_when": "ui_or_user_entry_point"
+        },
+        {
+          "id": "invoice_summary.render.v1",
+          "event": "fp.feature.code_path.executed",
+          "level": "L6",
+          "required": true,
+          "attributes": [
+            "surface",
+            "operation"
+          ]
+        },
+        {
+          "id": "invoice_summary.backend_accepted.v1",
+          "event": "fp.feature.effect_committed",
+          "level": "L7",
+          "required": true,
+          "required_when": "durable_effect_expected"
+        },
+        {
+          "id": "invoice_summary.completed.v1",
+          "event": "fp.feature.outcome_completed",
+          "level": "L8",
+          "required": true,
+          "required_when": "user_visible_outcome_expected"
+        }
+      ]
+    },
+    "adoption": {
+      "minimum_evidence": {
+        "users": 1,
+        "sessions": 1,
+        "environments": [
+          "production"
+        ]
+      },
+      "aggregation_window": "P7D",
+      "sampling_allowed": false
+    },
+    "privacy": {
+      "pii_allowed": false,
+      "user_identifier": "pseudonymous_hash",
+      "retention_days": 90,
+      "raw_payload_storage": false
+    }
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "public_key_ref": "urn:example:product:release-authority:key-1",
+    "signed_by": "product.release-authority",
+    "value": "base64-signature"
+  }
+}

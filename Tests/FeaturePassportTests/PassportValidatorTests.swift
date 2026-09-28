@@ -51,6 +51,86 @@ struct PassportValidatorTests {
         #expect(issues.contains { $0.code == "schema" })
     }
 
+    @Test("An implementation element needs an anchored source identity")
+    func elementNeedsAnchor() throws {
+        let data = try modifiedPassport { object in
+            var spec = object["spec"] as! [String: Any]
+            var implementation = spec["implementation"] as! [String: Any]
+            implementation["elements"] = [["id": "composition", "role": "composition"]]
+            spec["implementation"] = implementation
+            object["spec"] = spec
+        }
+        let issues = try PassportValidator().validate(data)
+        #expect(issues.contains { $0.code == "schema" })
+    }
+
+    @Test("An anchor repository must be declared locally")
+    func anchorRepositoryMustExist() throws {
+        let data = try modifiedPassport { object in
+            var spec = object["spec"] as! [String: Any]
+            var implementation = spec["implementation"] as! [String: Any]
+            var elements = implementation["elements"] as! [[String: Any]]
+            var anchors = elements[0]["anchors"] as! [[String: Any]]
+            anchors[0]["repository"] = "missing-repo"
+            elements[0]["anchors"] = anchors
+            implementation["elements"] = elements
+            spec["implementation"] = implementation
+            object["spec"] = spec
+        }
+        let issues = try PassportValidator().validate(data)
+        #expect(issues.contains { $0.code == "missing_reference" })
+    }
+
+    @Test("A test binding must reference an element whose role is test")
+    func testBindingRole() throws {
+        let data = try modifiedPassport { object in
+            var spec = object["spec"] as! [String: Any]
+            var implementation = spec["implementation"] as! [String: Any]
+            var bindings = implementation["bindings"] as! [[String: Any]]
+            bindings[0]["test_element_ids"] = ["composition"]
+            implementation["bindings"] = bindings
+            spec["implementation"] = implementation
+            object["spec"] = spec
+        }
+        let issues = try PassportValidator().validate(data)
+        #expect(issues.contains { $0.code == "invalid_reference_role" })
+    }
+
+    @Test("A probe can require only supported runtime correlation fields")
+    func probeRuntimeFieldVocabulary() throws {
+        let data = try modifiedPassport { object in
+            var spec = object["spec"] as! [String: Any]
+            spec["evidence"] = [
+                "required_level": "L6",
+                "probes": [[
+                    "id": "route", "event": "fp.feature.code_path.executed",
+                    "level": "L6", "required": true,
+                    "required_runtime_fields": ["unknown_field"]
+                ]]
+            ]
+            object["spec"] = spec
+        }
+        let issues = try PassportValidator().validate(data)
+        #expect(issues.contains { $0.code == "schema" })
+    }
+
+    @Test("A draft may target L6 before delivery or runtime evidence exists")
+    func futureEvidenceTargetIsNotAClaim() throws {
+        let data = try modifiedPassport { object in
+            var spec = object["spec"] as! [String: Any]
+            spec["evidence"] = ["required_level": "L6", "probes": []]
+            object["spec"] = spec
+        }
+        let issues = try PassportValidator().validate(data)
+        #expect(issues.isEmpty)
+    }
+
+    private func modifiedPassport(_ mutate: (inout [String: Any]) -> Void) throws -> Data {
+        var object = try #require(JSONSerialization.jsonObject(with: passport()) as? [String: Any])
+        mutate(&object)
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
     private func passport(
         featureID: String? = "feature.demo.route",
         elementIDs: [String] = ["composition"],
@@ -74,7 +154,21 @@ struct PassportValidatorTests {
                 ]
             ],
             "implementation": [
-                "elements": elementIDs.map { ["id": $0, "role": "composition"] },
+                "repositories": [["name": "demo"]],
+                "elements": elementIDs.map { id in
+                    [
+                        "id": id,
+                        "role": "composition",
+                        "anchors": [[
+                            "repository": "demo",
+                            "revision": "0123456789abcdef0123456789abcdef01234567",
+                            "language": "swift",
+                            "module": "Demo",
+                            "path": "Sources/Demo/Route.swift",
+                            "symbol": "Route.evaluate()"
+                        ]]
+                    ]
+                },
                 "bindings": [[
                     "id": "route-binding",
                     "acceptance_criteria_ids": ["route-selected"],
