@@ -16,8 +16,20 @@
       ]
     },
     "implementation": {
+      "repositories": [{ "name": "feature-passport" }],
       "elements": [
-        { "id": "validator", "role": "policy" }
+        {
+          "id": "validator",
+          "role": "policy",
+          "anchors": [{
+            "repository": "feature-passport",
+            "revision": "9517c0140881612934e56a3cc420e82c2963be46",
+            "language": "swift",
+            "module": "FeaturePassport",
+            "path": "Sources/FeaturePassport/PassportValidator.swift",
+            "symbol": "PassportValidator.validate(_:)"
+          }]
+        }
       ],
       "bindings": [
         {

@@ -498,7 +498,9 @@ a migration note and retain enough compatibility to verify old receipts.
 
 All three artifacts use integer `schema_version` with an `artifact_kind`
 discriminator: `feature_passport`, `feature_observation`, or `evidence_receipt`.
-These are proposed v1 shapes, not published schemas or implemented validators.
+These are proposed v1 shapes. An experimental passport document schema and
+local validator now cover part of the passport shape; observation and receipt
+schemas and validators remain unimplemented.
 
 ### Passport Lifecycle
 

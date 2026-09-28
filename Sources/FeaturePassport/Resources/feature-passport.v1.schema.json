@@ -13,9 +13,12 @@
       "properties": {
         "feature_id": { "$ref": "#/$defs/nonempty" },
         "passport_id": { "$ref": "#/$defs/nonempty" },
+        "title": { "$ref": "#/$defs/nonempty" },
+        "owner": { "$ref": "#/$defs/nonempty" },
         "version": { "$ref": "#/$defs/nonempty" },
         "status": { "enum": ["draft", "sealed"] },
-        "issuer": { "$ref": "#/$defs/nonempty" }
+        "issuer": { "$ref": "#/$defs/nonempty" },
+        "issued_at": { "$ref": "#/$defs/nonempty" }
       }
     },
     "spec": {
@@ -58,19 +61,42 @@
                 "properties": { "name": { "$ref": "#/$defs/nonempty" } }
               }
             },
+            "pull_requests": {
+              "type": "array", "items": {
+                "type": "object", "required": ["repository", "number"],
+                "properties": {
+                  "repository": { "$ref": "#/$defs/nonempty" },
+                  "number": { "type": "integer", "minimum": 1 }
+                }
+              }
+            },
+            "commits": {
+              "type": "array", "items": {
+                "type": "object", "required": ["repository", "sha", "role"],
+                "properties": {
+                  "repository": { "$ref": "#/$defs/nonempty" },
+                  "sha": { "$ref": "#/$defs/nonempty" },
+                  "role": { "$ref": "#/$defs/nonempty" }
+                }
+              }
+            },
             "elements": {
               "type": "array", "items": {
-                "type": "object", "required": ["id", "role"],
+                "type": "object", "required": ["id", "role", "anchors"],
                 "properties": {
                   "id": { "$ref": "#/$defs/nonempty" },
                   "role": { "$ref": "#/$defs/nonempty" },
-                  "anchors": { "type": "array", "items": { "type": "object" } },
+                  "anchors": {
+                    "type": "array", "minItems": 1,
+                    "items": { "$ref": "#/$defs/source_anchor" }
+                  },
                   "uses": {
                     "type": "array", "items": {
                       "type": "object", "required": ["element_id", "relation"],
                       "properties": {
                         "element_id": { "$ref": "#/$defs/nonempty" },
-                        "relation": { "$ref": "#/$defs/nonempty" }
+                        "relation": { "$ref": "#/$defs/nonempty" },
+                        "invocation_order": { "type": "integer", "minimum": 0 }
                       }
                     }
                   }
@@ -92,25 +118,77 @@
             }
           }
         },
+        "delivery": {
+          "type": "object", "properties": {
+            "artifacts": {
+              "type": "array", "items": {
+                "type": "object", "required": ["platform", "artifact_type", "digest"],
+                "properties": {
+                  "platform": { "$ref": "#/$defs/nonempty" },
+                  "artifact_type": { "$ref": "#/$defs/nonempty" },
+                  "digest": { "$ref": "#/$defs/nonempty" },
+                  "build_number": { "$ref": "#/$defs/nonempty" },
+                  "provenance_ref": { "$ref": "#/$defs/nonempty" }
+                }
+              }
+            },
+            "production_environments": { "$ref": "#/$defs/ids" }
+          }
+        },
+        "runtime": {
+          "type": "object", "properties": {
+            "required_resource_attributes": {
+              "type": "object", "additionalProperties": { "$ref": "#/$defs/nonempty" }
+            }
+          }
+        },
         "evidence": {
           "type": "object", "required": ["required_level", "probes"],
           "properties": {
             "required_level": { "enum": ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"] },
             "probes": {
               "type": "array", "items": {
-                "type": "object", "required": ["id"],
+                "type": "object", "required": ["id", "event", "level", "required"],
                 "properties": {
                   "id": { "$ref": "#/$defs/nonempty" },
-                  "element_ids": { "$ref": "#/$defs/ids" }
+                  "event": { "$ref": "#/$defs/nonempty" },
+                  "level": { "$ref": "#/$defs/evidence_level" },
+                  "required": { "type": "boolean" },
+                  "required_when": {
+                    "enum": ["ui_or_user_entry_point", "durable_effect_expected",
+                             "user_visible_outcome_expected", "backend_only",
+                             "headless_or_batch", "always"]
+                  },
+                  "attributes": { "$ref": "#/$defs/ids" },
+                  "element_ids": { "$ref": "#/$defs/ids" },
+                  "required_runtime_fields": {
+                    "type": "array", "uniqueItems": true,
+                    "items": { "enum": ["operation_id", "invocation_id"] }
+                  }
                 }
               }
             }
+          }
+        },
+        "adoption": {
+          "type": "object", "properties": {
+            "minimum_evidence": {
+              "type": "object", "required": ["users", "sessions", "environments"],
+              "properties": {
+                "users": { "type": "integer", "minimum": 0 },
+                "sessions": { "type": "integer", "minimum": 0 },
+                "environments": { "$ref": "#/$defs/ids" }
+              }
+            },
+            "aggregation_window": { "$ref": "#/$defs/nonempty" },
+            "sampling_allowed": { "type": "boolean" }
           }
         },
         "privacy": {
           "type": "object", "required": ["pii_allowed", "retention_days", "raw_payload_storage"],
           "properties": {
             "pii_allowed": { "type": "boolean" },
+            "user_identifier": { "$ref": "#/$defs/nonempty" },
             "retention_days": { "type": "integer", "minimum": 0 },
             "raw_payload_storage": { "type": "boolean" }
           }
@@ -140,7 +218,23 @@
   "then": { "required": ["signature"] },
   "$defs": {
     "nonempty": { "type": "string", "minLength": 1 },
+    "evidence_level": {
+      "enum": ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"]
+    },
     "ids": { "type": "array", "items": { "$ref": "#/$defs/nonempty" } },
-    "nonempty_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } }
+    "nonempty_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonempty" } },
+    "source_anchor": {
+      "type": "object",
+      "required": ["repository", "revision", "language", "module", "path", "symbol"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/nonempty" },
+        "revision": { "$ref": "#/$defs/nonempty" },
+        "language": { "$ref": "#/$defs/nonempty" },
+        "module": { "$ref": "#/$defs/nonempty" },
+        "path": { "$ref": "#/$defs/nonempty" },
+        "symbol": { "$ref": "#/$defs/nonempty" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
   }
 }

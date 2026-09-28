@@ -70,6 +70,7 @@ public struct PassportValidator: Sendable {
 
         let criterionIDs = Set(criteria)
         let contractIDs = Set(contracts)
+        let repositoryIDs = Set(repositories)
         let elementIDs = Set(elements.map(\.id))
         let testIDs = Set(elements.filter { $0.role == "test" }.map(\.id))
 
@@ -79,7 +80,15 @@ public struct PassportValidator: Sendable {
             }
         }
 
+        for request in implementation?.pullRequests ?? [] {
+            require([request.repository], in: repositoryIDs, scope: "pull request repository")
+        }
+        for commit in implementation?.commits ?? [] {
+            require([commit.repository], in: repositoryIDs, scope: "commit repository")
+        }
         for element in elements {
+            require(element.anchors.map(\.repository), in: repositoryIDs,
+                    scope: "anchor repository in \(element.id)")
             require(element.uses?.map(\.elementID) ?? [], in: elementIDs,
                     scope: "element used by \(element.id)")
         }
@@ -90,8 +99,15 @@ public struct PassportValidator: Sendable {
                     scope: "contract reference in \(binding.id)")
             require(binding.elementIDs, in: elementIDs,
                     scope: "element in \(binding.id)")
-            require(binding.testElementIDs ?? [], in: testIDs,
-                    scope: "test element in \(binding.id)")
+            for id in binding.testElementIDs ?? [] {
+                if !elementIDs.contains(id) {
+                    issues.append(.init(code: "missing_reference",
+                                        message: "Unknown test element in \(binding.id): \(id)"))
+                } else if !testIDs.contains(id) {
+                    issues.append(.init(code: "invalid_reference_role",
+                                        message: "Element \(id) in \(binding.id) does not have role test"))
+                }
+            }
         }
         for probe in probes {
             require(probe.elementIDs ?? [], in: elementIDs,
@@ -135,17 +151,29 @@ private struct NamedID: Decodable {
 
 private struct Implementation: Decodable {
     let repositories: [Repository]?
+    let pullRequests: [RepositoryReference]?
+    let commits: [RepositoryReference]?
     let elements: [Element]?
     let bindings: [Binding]?
+
+    enum CodingKeys: String, CodingKey {
+        case repositories, commits, elements, bindings
+        case pullRequests = "pull_requests"
+    }
 }
 
 private struct Repository: Decodable {
     let name: String
 }
 
+private struct RepositoryReference: Decodable {
+    let repository: String
+}
+
 private struct Element: Decodable {
     let id: String
     let role: String
+    let anchors: [RepositoryReference]
     let uses: [ElementUse]?
 }
 

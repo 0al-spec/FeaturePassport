@@ -38,6 +38,8 @@ proposed v1 contract; it is not yet a complete operational passport verifier.
 - [Feature Passport Runtime Evidence Contract, RFC 0001 v0.3.0](docs/proposals/0001_feature_runtime_evidence_layer.md)
 - [Zeusus route composition: implementation-binding pilot](docs/examples/zeusus-route-composition.md)
 - [ADR 0001: Swift validation stack](docs/adr/0001-swift-validation-stack.md)
+- [Passport v1 document validation profile](docs/contracts/passport-v1-validation.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
+- [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
 
 Run `make test` to check the Swift package and repository documentation.
