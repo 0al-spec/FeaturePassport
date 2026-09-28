@@ -109,17 +109,27 @@ public struct AggregateClaimDecisionTrustStore: Codable, Equatable, Sendable {
             throw AggregateClaimDecisionError.invalidTrustStore
         }
         let store = try JSONDecoder().decode(Self.self, from: data)
+        var identityByteCount = 0
+        var digestCount = 0
+        for key in store.trustedKeys {
+            let authorityBytes = key.authorityID.utf8.count
+            let keyIDBytes = key.keyID.utf8.count
+            guard authorityBytes > 0, authorityBytes <= 128, keyIDBytes > 0, keyIDBytes <= 128,
+                  key.publicKey.utf8.count <= 64, Data(base64Encoded: key.publicKey)?.count == 32,
+                  !key.authorizedClaimPolicyDigests.isEmpty,
+                  key.authorizedClaimPolicyDigests.count <= 1024 else {
+                throw AggregateClaimDecisionError.invalidTrustStore
+            }
+            identityByteCount += authorityBytes + keyIDBytes
+            digestCount += key.authorizedClaimPolicyDigests.count
+            guard identityByteCount <= 262_144, digestCount <= 1024,
+                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
+                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count else {
+                throw AggregateClaimDecisionError.invalidTrustStore
+            }
+        }
         let identities = store.trustedKeys.map { "\($0.authorityID)|\($0.keyID)" }
-        guard Set(identities).count == identities.count,
-              store.trustedKeys.allSatisfy({ key in
-                  !key.authorityID.isEmpty && !key.keyID.isEmpty &&
-                  key.authorityID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes &&
-                  key.keyID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes &&
-                  key.publicKey.utf8.count <= 64 && Data(base64Encoded: key.publicKey)?.count == 32 &&
-                  !key.authorizedClaimPolicyDigests.isEmpty &&
-                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count &&
-                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest)
-              }) else {
+        guard Set(identities).count == identities.count else {
             throw AggregateClaimDecisionError.invalidTrustStore
         }
         return store
@@ -424,17 +434,23 @@ public struct AggregateClaimDecisionVerifier: Sendable {
 
     private static func isValid(trustStore: AggregateClaimDecisionTrustStore) -> Bool {
         guard !trustStore.trustedKeys.isEmpty, trustStore.trustedKeys.count <= 1024 else { return false }
+        var identityByteCount = 0
+        var digestCount = 0
+        for key in trustStore.trustedKeys {
+            let authorityBytes = key.authorityID.utf8.count
+            let keyIDBytes = key.keyID.utf8.count
+            guard authorityBytes > 0, authorityBytes <= 128, keyIDBytes > 0, keyIDBytes <= 128,
+                  key.publicKey.utf8.count <= 64, Data(base64Encoded: key.publicKey)?.count == 32,
+                  !key.authorizedClaimPolicyDigests.isEmpty,
+                  key.authorizedClaimPolicyDigests.count <= 1024 else { return false }
+            identityByteCount += authorityBytes + keyIDBytes
+            digestCount += key.authorizedClaimPolicyDigests.count
+            guard identityByteCount <= 262_144, digestCount <= 1024,
+                  key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest),
+                  Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count else { return false }
+        }
         let identities = trustStore.trustedKeys.map { "\($0.authorityID)|\($0.keyID)" }
-        guard Set(identities).count == identities.count, trustStore.trustedKeys.allSatisfy({ key in
-            !key.authorityID.isEmpty && !key.keyID.isEmpty &&
-                key.authorityID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes &&
-                key.keyID.utf8.count <= AggregateClaimDecision.maximumArtifactBytes &&
-                key.publicKey.utf8.count <= 64 && Data(base64Encoded: key.publicKey)?.count == 32 &&
-                !key.authorizedClaimPolicyDigests.isEmpty &&
-                key.authorizedClaimPolicyDigests.count <= 1024 &&
-                Set(key.authorizedClaimPolicyDigests).count == key.authorizedClaimPolicyDigests.count &&
-                key.authorizedClaimPolicyDigests.allSatisfy(AggregateClaimDecisionSigningProfile.isDigest)
-        }) else { return false }
+        guard Set(identities).count == identities.count else { return false }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         guard let encodedStore = try? encoder.encode(trustStore),

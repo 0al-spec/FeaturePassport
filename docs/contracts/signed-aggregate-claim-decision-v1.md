@@ -81,13 +81,14 @@ The verifier's explicit offline trust store has this exact envelope:
 
 Unknown fields, duplicate JSON names, duplicate authority/key pairs, malformed
 keys, duplicate or malformed digests, empty allowlists, and stores over 1 MB
-are rejected. The trust store is capped at 1 MB and 1,024 keys; each key may
-allowlist at most 1,024 claim-policy digests. Direct library trust-store values
-are subject to the same checks. The signing-side
-`AggregateClaimDecisionAuthorization` has the same authority/key identity and
-an exact allowlist of at most 1,024 policy digests. The injected signer's
-public key must equal the public key in that authorization. This profile does
-not distribute, rotate, or revoke authority keys.
+are rejected. The trust store is capped at 1 MB and 1,024 keys; authority and
+key IDs are at most 128 UTF-8 bytes each, and the store allowlists at most
+1,024 claim-policy digests total. Direct library trust-store values are
+subject to the same checks before duplicate-identity construction or encoding.
+The signing-side `AggregateClaimDecisionAuthorization` has the same authority/key
+identity and an exact allowlist of at most 1,024 policy digests. The injected
+signer's public key must equal the public key in that authorization. This
+profile does not distribute, rotate, or revoke authority keys.
 
 ## CLI verification
 

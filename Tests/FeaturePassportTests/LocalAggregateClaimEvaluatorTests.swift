@@ -300,6 +300,19 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(!oversizedTrustReport.trusted)
         #expect(oversizedTrustReport.issues.contains { $0.code == "decision_trust_store_invalid" })
 
+        let firstDigest = EvidenceReceiptVerifier.sha256(fixture.policy)
+        let secondDigest = "sha256:" + String(repeating: "b", count: 64)
+        let aggregateOversizedStore = AggregateClaimDecisionTrustStore(trustedKeys: (0..<1024).map { index in
+            .init(authorityID: "authority-\(index)", keyID: "key-\(index)",
+                  publicKey: context.signer.publicKey.base64EncodedString(),
+                  authorizedClaimPolicyDigests: index == 0 ? [firstDigest, secondDigest] : [firstDigest])
+        })
+        let aggregateOversizedReport = try AggregateClaimDecisionVerifier().verify(
+            decisionData: encodeSorted(issued), inputs: context.inputs, trustStore: aggregateOversizedStore
+        )
+        #expect(!aggregateOversizedReport.trusted)
+        #expect(aggregateOversizedReport.issues.contains { $0.code == "decision_trust_store_invalid" })
+
         var envelope = try JSONSerialization.jsonObject(with: encodeSorted(issued)) as! [String: Any]
         envelope["signature"] = ["algorithm": "Ed25519", "profile": "fp-aggregate-decision-v1-fields",
                                   "value": Data(repeating: 0, count: 64).base64EncodedString()]
