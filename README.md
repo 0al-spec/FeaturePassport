@@ -12,9 +12,11 @@ The repository contains an experimental Swift validator for the passport
 document envelope and passport-local references, a read-only resolver for
 Swift declarations in pinned Git commits, a bounded matcher for normalized
 runtime observations, and a bounded verifier for signed observation receipts
-against a caller-supplied offline trust store. Production receipt issuance,
-general authority-policy services, claim acceptance, provider adapters, and
-runtime integrations remain proposals.
+against a caller-supplied offline trust store. An experimental library issuer
+and verifier also sign and verify bounded local aggregate predicate decisions
+using caller-injected keys and explicit policy allowlists. Production receipt
+issuance, production claim acceptance, general authority-policy services,
+provider adapters, and runtime integrations remain proposals.
 
 ## Swift validation spike
 
@@ -62,6 +64,15 @@ values. Its unsigned `satisfied` result does not establish `runtime_verified`,
 production evidence, or replay protection.
 See the [local aggregate claim evaluation profile](docs/contracts/local-aggregate-claim-evaluation-v1.md).
 
+`verify-decision` verifies a signed, input-bound decision and reruns the local
+aggregate evaluator at the signed time. The experimental library issuer needs
+an injected Ed25519 signer and explicit authorization for the exact claim
+policy digest; the repository contains no production issuer CLI or private
+key. `accepted` means only that the bounded local predicate passed. It does
+not assert a feature outcome, delivery provenance, production deployment,
+`runtime_verified`, or replay protection. Its versioned signing encoding is
+not JCS. See the [signed aggregate claim decision profile](docs/contracts/signed-aggregate-claim-decision-v1.md).
+
 ## Pinned source resolution
 
 ```sh
@@ -89,6 +100,7 @@ behavior, test execution, or provider contracts. See the
 - [Runtime observation evaluation contract](docs/contracts/runtime-observation-evaluation.md)
 - [Signed observation receipt verifier v1](docs/contracts/signed-observation-receipt-v1.md)
 - [Local aggregate claim evaluation v1](docs/contracts/local-aggregate-claim-evaluation-v1.md)
+- [Signed aggregate claim decision v1](docs/contracts/signed-aggregate-claim-decision-v1.md)
 - [Swift validation spike evidence](docs/evidence/swift-validation-spike.md)
 - [Passport v1 profile evidence](docs/evidence/passport-v1-profile.md)
 - [Zeusus passport validation evidence](docs/evidence/zeusus-passport-validation.md)
