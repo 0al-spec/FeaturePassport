@@ -56,9 +56,10 @@ not claim JCS conformance. See the [signed observation receipt profile](docs/con
 
 `evaluate-claim` reruns the receipt verifier for every observation/receipt pair
 and evaluates a versioned local predicate over exact passport identity, one
-operation, an explicit per-probe result allowlist, environment, receipt policy,
-and allowlisted semantic sequence values. Its unsigned `satisfied` result does
-not establish `runtime_verified`, production evidence, or replay protection.
+operation, an identical source/build tuple, an explicit per-probe result
+allowlist, environment, receipt policy, and allowlisted semantic sequence
+values. Its unsigned `satisfied` result does not establish `runtime_verified`,
+production evidence, or replay protection.
 See the [local aggregate claim evaluation profile](docs/contracts/local-aggregate-claim-evaluation-v1.md).
 
 ## Pinned source resolution

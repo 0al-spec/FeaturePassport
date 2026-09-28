@@ -122,6 +122,23 @@ struct LocalAggregateClaimEvaluatorTests {
         #expect(report.issues.contains { $0.code == "environment_mismatch" })
     }
 
+    @Test("Mixed source/build identities fail even when every receipt verifies")
+    func deliveryIdentityMismatchFails() throws {
+        let fixture = try makeFixture(artifactDigests: ["sha256:build-a", "sha256:build-b", "sha256:build-a"])
+        let report = try evaluate(fixture)
+        #expect(!report.satisfied)
+        #expect(report.issues.contains { $0.code == "delivery_identity_mismatch" })
+        #expect(!report.issues.contains { $0.code.hasPrefix("receipt_") })
+    }
+
+    @Test("Absent and present delivery identity values are not treated as equal")
+    func optionalDeliveryIdentityMismatchFails() throws {
+        let fixture = try makeFixture(releaseIDs: [nil, "release-1", nil])
+        let report = try evaluate(fixture)
+        #expect(!report.satisfied)
+        #expect(report.issues.contains { $0.code == "delivery_identity_mismatch" })
+    }
+
     @Test("Noncanonical and overflowing sequence values fail")
     func invalidSequenceFails() throws {
         let leadingZero = try makeFixture(sequenceTexts: ["10", "011", "12"])
@@ -158,6 +175,9 @@ struct LocalAggregateClaimEvaluatorTests {
                              operationIDs: [String] = ["op-1", "op-1", "op-1"],
                              eventIDs: [String] = ["event-1", "event-2", "event-3"],
                              environments: [String] = ["test", "test", "test"],
+                             artifactDigests: [String?] = ["sha256:build-a", "sha256:build-a", "sha256:build-a"],
+                             releaseIDs: [String?] = [nil, nil, nil],
+                             buildNumbers: [String?] = [nil, nil, nil],
                              results: [RuntimeObservation.Observation.Result] = [.success, .success, .success]) throws -> Fixture {
         let key = Curve25519.Signing.PrivateKey()
         let policyID = "receipt-policy"
@@ -183,11 +203,16 @@ struct LocalAggregateClaimEvaluatorTests {
             )
         }
         let eventJSONs = try (0..<3).map { index in
-            try JSONSerialization.data(withJSONObject: [
+            let delivery: [String: Any] = [
+                "environment": environments[index], "platform": "ios",
+                "git_sha": "commit-demo", "artifact_digest": jsonValue(artifactDigests[index]),
+                "release_id": jsonValue(releaseIDs[index]), "build_number": jsonValue(buildNumbers[index])
+            ]
+            return try JSONSerialization.data(withJSONObject: [
                 "artifact_kind": "feature_observation", "schema_version": 1,
                 "event_name": "event.probe-\(index + 1)",
                 "feature_passport": ["feature_id": "feature.demo", "passport_id": "fp.demo", "version": "1", "digest": passportDigest, "probe_id": "probe-\(index + 1)"],
-                "delivery": ["environment": environments[index], "platform": "ios"],
+                "delivery": delivery,
                 "runtime": ["operation_id": operationIDs[index]],
                 "observation": ["occurred_at": "2026-09-28T20:25:00Z", "result": results[index].rawValue, "attributes": ["sequence": observations[index].attributes["sequence"]!]],
                 "integrity": ["event_id": eventIDs[index], "idempotency_key": "test:\(index)"]
@@ -249,5 +274,9 @@ struct LocalAggregateClaimEvaluatorTests {
             trustStore: EvidenceReceiptTrustStore(trustedKeys: [trustedKey]),
             verificationTime: EvidenceReceiptTimestamp.parseRFC3339UTC("2026-09-28T20:35:00Z")!,
             observations: observations)
+    }
+
+    private func jsonValue(_ value: String?) -> Any {
+        value.map { $0 as Any } ?? NSNull()
     }
 }

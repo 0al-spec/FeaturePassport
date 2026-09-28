@@ -333,6 +333,7 @@ public struct LocalAggregateClaimEvaluator: Sendable {
         var eventIDs = Set<String>()
         var receiptIDs = Set<String>()
         var operationID: String?
+        var deliveryIdentity: AggregateDeliveryIdentity?
         var evidenceAuthorityID: String?
         var evidencePolicyID: String?
         var evidencePolicyVersion: String?
@@ -437,6 +438,17 @@ public struct LocalAggregateClaimEvaluator: Sendable {
             }
             if observation.delivery.environment != policy.environment {
                 issues.append(.init(code: "environment_mismatch", message: "\(prefix): observation environment does not match claim policy"))
+            }
+            let currentDeliveryIdentity = AggregateDeliveryIdentity(
+                gitSHA: observation.delivery.gitSHA,
+                artifactDigest: observation.delivery.artifactDigest,
+                releaseID: observation.delivery.releaseID,
+                buildNumber: observation.delivery.buildNumber
+            )
+            if let deliveryIdentity, deliveryIdentity != currentDeliveryIdentity {
+                issues.append(.init(code: "delivery_identity_mismatch", message: "\(prefix): git_sha, artifact_digest, release_id, and build_number must match across the bundle, including absent values"))
+            } else {
+                deliveryIdentity = currentDeliveryIdentity
             }
             guard let observedOperationID = observation.runtime?.operationID, !observedOperationID.isEmpty else {
                 issues.append(.init(code: "operation_id_missing", message: "\(prefix): observation requires a nonempty runtime.operation_id"))
@@ -580,4 +592,11 @@ private struct ReceiptPolicyIdentity: Decodable {
         case policyVersion = "policy_version"
         case policyDigest = "policy_digest"
     }
+}
+
+private struct AggregateDeliveryIdentity: Equatable {
+    let gitSHA: String?
+    let artifactDigest: String?
+    let releaseID: String?
+    let buildNumber: String?
 }

@@ -103,6 +103,10 @@ The evaluator requires all of the following:
    verification time, and explicit trust store.
 3. Every observation matches the same feature/passport/version/digest,
    allowlisted receipt authority/policy tuple, and exact policy environment.
+   The optional `delivery.git_sha`, `artifact_digest`, `release_id`, and
+   `build_number` tuple must also be exactly identical across all events,
+   including nil-versus-present values. This only prevents mixing the available
+   identity values; it does not verify their provenance or establish deployment.
 4. Event IDs and receipt IDs are unique within the bundle. Every event has one
    nonempty `runtime.operation_id`, and all values are identical.
 5. For each probe, `observation.attributes[sequence_attribute]` is canonical
