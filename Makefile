@@ -1,18 +1,20 @@
 .PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus resolve-zeusus
 
+SWIFT_FLAGS ?=
+
 ZEUSUS_CHECKOUT ?= ../../Zeusus
 
 markdown-lint:
 	npx --yes markdownlint-cli2 --no-globs AGENTS.md README.md 'docs/**/*.md'
 
 swift-test:
-	swift build
-	FEATURE_PASSPORT_TEST_CLI="$$(swift build --show-bin-path)/feature-passport" swift test
+	swift build $(SWIFT_FLAGS)
+	FEATURE_PASSPORT_TEST_CLI="$$(swift build $(SWIFT_FLAGS) --show-bin-path)/feature-passport" swift test $(SWIFT_FLAGS)
 
 .PHONY: test-receipt-issuer
 test-receipt-issuer:
-	swift build
-	FEATURE_PASSPORT_TEST_CLI="$$(swift build --show-bin-path)/feature-passport" swift test --filter EvidenceReceiptIssuerTests
+	swift build $(SWIFT_FLAGS)
+	FEATURE_PASSPORT_TEST_CLI="$$(swift build $(SWIFT_FLAGS) --show-bin-path)/feature-passport" swift test $(SWIFT_FLAGS) --filter EvidenceReceiptIssuerTests
 
 test: swift-test markdown-lint validate-examples
 
