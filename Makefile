@@ -1,6 +1,10 @@
-.PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus resolve-zeusus
+.PHONY: markdown-lint swift-test test validate-example validate-examples validate-zeusus resolve-zeusus check-swift-toolchain
 
 SWIFT_FLAGS ?=
+SWIFT_REQUIRED_VERSION ?= 6.4
+
+check-swift-toolchain:
+	@swift_version="$$(swift --version)"; printf '%s\n' "$$swift_version"; printf '%s\n' "$$swift_version" | grep -E 'Swift version $(SWIFT_REQUIRED_VERSION)([. ]|$$)'
 
 ZEUSUS_CHECKOUT ?= ../../Zeusus
 
