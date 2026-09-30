@@ -18,6 +18,16 @@ using caller-injected keys and explicit policy allowlists. Production receipt
 issuance, production claim acceptance, general authority-policy services,
 provider adapters, and runtime integrations remain proposals.
 
+## Toolchain baseline
+
+Current development and candidate release CI use Swift 6.4. Linux archives use
+a digest-pinned official Swift 6.4 Noble image for amd64 and arm64; macOS CI
+checks the actual Xcode compiler version before building. This compiler baseline
+is distinct from the package manifest minimum tools version, language mode and
+OS deployment targets. Those compatibility floors are unchanged by this migration.
+SpecificationCore and SwiftDecision keep their own minimum/current CI lanes;
+Platform consumes qualified archives rather than compiling a Swift runtime.
+
 ## Swift validation spike
 
 The checked-in [JSON Schema](Sources/FeaturePassport/Resources/feature-passport.v1.schema.json)
