@@ -32,7 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install packaging tools
-        run: apt-get update && apt-get install --yes python3 git make
+        run: |
+          apt-get update && apt-get install --yes python3 git make
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Test issuer and packaging
         run: |
           make swift-test SWIFT_FLAGS="--jobs 2"
