@@ -33,7 +33,7 @@ a successful process exit is a completed packaging run.
 
 The target is the native host OS/architecture, not a cross-compilation promise.
 The initial candidate workflow builds macOS arm64 and native Linux amd64/arm64;
-Linux uses an explicit digest of the official Swift 6.1.3 Noble image. CI must
+Linux uses an explicit digest of the official Swift 6.4 Noble image. CI must
 pass each target before a consumer may treat it as supported. No local Linux or
 x86_64 macOS proof is implied by a successful arm64 macOS build.
 
