@@ -29,7 +29,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "FeaturePassportCLI",
-            dependencies: ["FeaturePassport"]
+            dependencies: ["FeaturePassport", .product(name: "Crypto", package: "swift-crypto")]
         ),
         .testTarget(
             name: "FeaturePassportTests",

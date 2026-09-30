@@ -7,8 +7,9 @@ runtime observation matcher. A trusted result means only that the allowlisted
 authority signed acceptance of this contract-matched observation under the
 allowlisted policy digest.
 
-The verifier does not create receipts. Producers or an independently operated
-authority must issue them. No private signing keys belong in this repository.
+The verifier does not create receipts. The separate
+[bounded issuer](observation-receipt-issuance-v1.md) can issue local contract-match
+receipts using an explicitly configured signing capability. No private signing keys belong in this repository.
 
 ## Digest and signature profile
 

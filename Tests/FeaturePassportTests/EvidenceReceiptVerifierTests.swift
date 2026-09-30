@@ -149,7 +149,7 @@ struct EvidenceReceiptVerifierTests {
         #expect(throws: (any Error).self) { try EvidenceReceiptTrustStore.decode(from: duplicate) }
     }
 
-    private struct Fixture {
+    struct Fixture {
         let passport: Data
         let observation: Data
         let receipt: Data
@@ -166,7 +166,7 @@ struct EvidenceReceiptVerifierTests {
         )
     }
 
-    private func makeFixture() throws -> Fixture {
+    func makeFixture() throws -> Fixture {
         let privateKey = Curve25519.Signing.PrivateKey()
         let publicKeyBase64 = privateKey.publicKey.rawRepresentation.base64EncodedString()
         let passport = try JSONSerialization.data(withJSONObject: [
