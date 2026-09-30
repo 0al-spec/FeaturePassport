@@ -117,3 +117,11 @@ custody remains caller-owned. See [issuance v1](docs/contracts/observation-recei
 for strict inputs, CLI exit codes and limits. `make test-receipt-issuer` exercises
 the actual CLI with ephemeral test keys. SpecGraph proposal 0047 owns coordination;
 FeaturePassport does not depend on SpecGraph.
+
+## Native CLI candidate archives
+
+`make package-cli` builds and smoke-checks a clean native release archive with
+SwiftPM resources, executable/asset digests and source/toolchain metadata.
+The candidate workflow qualifies native targets; it does not publish stable
+releases, adopt authority keys or deploy Platform. See
+[packaging v1](docs/contracts/cli-release-packaging-v1.md) for the delivery contract.
