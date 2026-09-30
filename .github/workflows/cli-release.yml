@@ -33,7 +33,7 @@ jobs:
         run: apt-get update && apt-get install --yes python3 git
       - name: Test issuer and packaging
         run: |
-          make swift-test
+          make swift-test SWIFT_FLAGS="--jobs 2"
           make test-package-cli
       - name: Build candidate archive and smoke-check extracted bytes
         env:
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test issuer and packaging
         run: |
-          make swift-test
+          make swift-test SWIFT_FLAGS="--jobs 2"
           make test-package-cli
       - name: Build candidate archive and smoke-check extracted bytes
         env:
