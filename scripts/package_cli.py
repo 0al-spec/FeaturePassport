@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build and smoke-check a native CLI archive; no authority keys or deployment."""
 import argparse
+from contextlib import contextmanager
 import gzip
 import hashlib
 import json
@@ -18,7 +19,7 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def assemble(binary_dir, output, version, target, source_commit, capabilities, toolchain, runtime):
+def assemble(binary_dir, output, version, target, source_commit, capabilities, toolchain, runtime, notices=None):
     if output.exists():
         raise FileExistsError(output)
     binary = binary_dir / "feature-passport"
@@ -40,6 +41,10 @@ def assemble(binary_dir, output, version, target, source_commit, capabilities, t
                 shutil.copytree(asset, stage / asset.name)
             else:
                 shutil.copy2(asset, stage / asset.name)
+        for name, content in (notices or {}).items():
+            notice = stage / "licenses" / name
+            notice.parent.mkdir(parents=True, exist_ok=True)
+            notice.write_bytes(content)
         files = [{"path": path.relative_to(stage).as_posix(), "sha256": sha256(path), "size": path.stat().st_size}
                  for path in sorted(stage.rglob("*")) if path.is_file()]
         archive = output / f"{name}.tar.gz"
@@ -61,11 +66,33 @@ def assemble(binary_dir, output, version, target, source_commit, capabilities, t
         "archive": archive.name, "archive_sha256": sha256(archive), "files": files,
         "capabilities": capabilities, "toolchain": toolchain,
         "runtime_requirements": runtime,
+        "license_notice_files": sorted((notices or {}).keys()),
         "authority_configuration_included": False,
         "build_attestation": "not_issued_by_packager",
     }, indent=2, sort_keys=True) + "\n")
     (output / f"{name}.sha256").write_text(f"{sha256(archive)}  {archive.name}\n{sha256(manifest)}  {manifest.name}\n")
     return archive, manifest
+
+
+@contextmanager
+def original_resources_unavailable(binary_dir):
+    """Prevent SwiftPM absolute build-path fallback from masking missing assets."""
+    resources = sorted([*binary_dir.glob("*.bundle"), *binary_dir.glob("*.resources")])
+    hidden = Path(tempfile.mkdtemp(prefix="fp-resource-smoke-", dir=binary_dir.parent))
+    moved = []
+    try:
+        for resource in resources:
+            destination = hidden / resource.name
+            resource.rename(destination)
+            moved.append((resource, destination))
+        yield
+    finally:
+        # Preserve originals even if another writer unexpectedly appeared.
+        for resource, destination in moved:
+            if resource.exists():
+                raise RuntimeError(f"Original resource restoration blocked; preserved in {hidden}")
+            destination.rename(resource)
+        hidden.rmdir()
 
 
 def run(*arguments, cwd=None):
@@ -101,12 +128,25 @@ def main():
     target = targets.get((host, machine))
     if target is None:
         raise ValueError("Unsupported native release target")
+    scratch = args.scratch_path.resolve() if args.scratch_path else root / ".build"
+    notices = {}
+    for checkout in sorted((scratch / "checkouts").glob("*")):
+        for pattern in ("LICENSE*", "NOTICE*", "COPYING*"):
+            for notice in sorted(checkout.rglob(pattern)):
+                if notice.is_file() and not notice.is_symlink() and ".git" not in notice.parts:
+                    notices[f"{checkout.name}/{notice.relative_to(checkout).as_posix()}"] = notice.read_bytes()
+    for pattern in ("LICENSE*", "NOTICE*", "COPYING*"):
+        for notice in root.glob(pattern):
+            if notice.is_file() and not notice.is_symlink():
+                notices[f"FeaturePassport/{notice.name}"] = notice.read_bytes()
+    if not notices:
+        raise ValueError("Dependency license notices unavailable")
     archive, manifest = assemble(binary_dir, args.output.resolve(), args.version, target, source, capabilities,
                                  run("swift", "--version"), {"host_os": host, "host_release": platform.release(),
                                  "swift_runtime": "matching build toolchain runtime required; no portable/static runtime claim",
-                                 "system_dependencies": "native host-compatible libraries required; Platform must validate its runner"})
+                                 "system_dependencies": "native host-compatible libraries required; Platform must validate its runner"}, notices)
     # Exercise only archived bytes, including schema loading, from a fresh layout.
-    with tempfile.TemporaryDirectory() as directory:
+    with original_resources_unavailable(binary_dir), tempfile.TemporaryDirectory() as directory:
         with tarfile.open(archive) as tar:
             for member in tar.getmembers():
                 path = Path(member.name)
