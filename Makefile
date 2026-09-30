@@ -28,3 +28,14 @@ validate-zeusus:
 
 resolve-zeusus:
 	swift run feature-passport resolve-sources examples/zeusus-route-composition.json --repository zeusus=$(abspath $(ZEUSUS_CHECKOUT))
+
+CLI_RELEASE_VERSION ?= 0.0.0-local
+CLI_RELEASE_OUTPUT ?= .build/cli-release
+CLI_RELEASE_SCRATCH ?= .build
+
+.PHONY: package-cli test-package-cli
+package-cli:
+	python3 scripts/package_cli.py --version "$(CLI_RELEASE_VERSION)" --output "$(CLI_RELEASE_OUTPUT)" --scratch-path "$(CLI_RELEASE_SCRATCH)"
+
+test-package-cli:
+	python3 -m unittest discover -s Tests/Packaging -p 'test_package_cli.py'
