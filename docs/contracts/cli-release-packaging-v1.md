@@ -15,14 +15,16 @@ make package-cli CLI_RELEASE_VERSION=0.0.0-local
 
 Packaging requires a clean committed checkout and locked Swift dependencies. It
 builds native release configuration, discovers the actual bin path, checks issuer
-capability, archives the executable plus resource bundles and adjacent dynamic
-libraries, rejects symlinks, and refuses an existing output directory. It emits:
+capability, archives the executable plus resource bundles, adjacent dynamic
+libraries and dependency license notices, rejects symlinks, and refuses an existing output directory. It emits:
 
 - A target-specific `.tar.gz` archive with normalized tar metadata.
 - A JSON `feature_passport_cli_release` manifest, version 1, with source commit,
   target, toolchain, actual capabilities, per-file size/SHA-256 and archive digest.
 - A `.sha256` file covering archive and manifest bytes.
 
+It temporarily hides the original build resource bundles (restoring them even
+after a smoke failure), so SwiftPM fallback cannot mask an incomplete archive.
 It then extracts the archive into a fresh temporary directory, executes help and
 capability checks, validates a passport through the bundled schema, compares
 asset digests and rechecks clean source identity. Failed smoke validation must
@@ -60,5 +62,5 @@ receipt acceptance, aggregate decision, admission and delivery are distinct.
 
 The packaging unit suite first failed because the packager module did not exist.
 Its Green covers resource inclusion/digest inventory, refusal to overwrite output,
-missing resources and symlink rejection. A native archive smoke result is separate
+missing resources, symlink rejection and build-resource isolation/restoration. A native archive smoke result is separate
 from those unit checks and from uncompleted Linux CI.
