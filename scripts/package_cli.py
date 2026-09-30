@@ -41,8 +41,8 @@ def assemble(binary_dir, output, version, target, source_commit, capabilities, t
                 shutil.copytree(asset, stage / asset.name)
             else:
                 shutil.copy2(asset, stage / asset.name)
-        for name, content in (notices or {}).items():
-            notice = stage / "licenses" / name
+        for notice_name, content in (notices or {}).items():
+            notice = stage / "licenses" / notice_name
             notice.parent.mkdir(parents=True, exist_ok=True)
             notice.write_bytes(content)
         files = [{"path": path.relative_to(stage).as_posix(), "sha256": sha256(path), "size": path.stat().st_size}
