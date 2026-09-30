@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "Package.*"
+      - "Makefile"
+      - "examples/local-passport.json"
       - "Sources/**"
       - "scripts/package_cli.py"
       - "Tests/Packaging/test_package_cli.py"
