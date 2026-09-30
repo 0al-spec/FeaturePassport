@@ -5,6 +5,7 @@ on:
     paths:
       - "Package.*"
       - "Makefile"
+      - "docs/contracts/cli-release-packaging-v1.md"
       - "examples/local-passport.json"
       - "Sources/**"
       - "scripts/package_cli.py"
