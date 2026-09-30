@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install packaging tools
-        run: apt-get update && apt-get install --yes python3 git
+        run: apt-get update && apt-get install --yes python3 git make
       - name: Test issuer and packaging
         run: |
           make swift-test SWIFT_FLAGS="--jobs 2"
