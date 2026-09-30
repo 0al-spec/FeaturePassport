@@ -111,8 +111,9 @@ def main():
         parser.error("version is too long")
     root = Path(__file__).resolve().parents[1]
     source = run("git", "rev-parse", "HEAD", cwd=root)
-    if run("git", "status", "--porcelain", "--untracked-files=all", cwd=root):
-        parser.error("release capture requires a clean committed checkout")
+    dirty = run("git", "status", "--porcelain", "--untracked-files=all", cwd=root)
+    if dirty:
+        parser.error("release capture requires a clean committed checkout: " + dirty)
     options = ["--configuration", "release", "--disable-automatic-resolution"]
     if args.scratch_path:
         options += ["--scratch-path", str(args.scratch_path.resolve())]
