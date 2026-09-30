@@ -28,7 +28,7 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     container:
-      image: swift:6.1.3-noble@sha256:3991e5dd5c40b04580c1e56f1ad6042f3173829b1995ffa53b84957371c25876
+      image: swift:6.4-noble@sha256:64bab762bc73a3fda6d9ebc559258bd6d7660c10a705bb25ecacad2f99d066f9
     steps:
       - uses: actions/checkout@v4
       - name: Install packaging tools
