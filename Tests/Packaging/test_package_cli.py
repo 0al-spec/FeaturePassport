@@ -20,11 +20,14 @@ class PackageCLITests(unittest.TestCase):
             resources = binary_dir / "FeaturePassport_FeaturePassport.bundle"
             resources.mkdir()
             (resources / "schema.json").write_text("{}")
-            archive, manifest = module.assemble(binary_dir, root / "output", "0.1.0", "arm64-apple-macosx", "a" * 40, {"commands": ["issue-receipt"]}, "swift-test", "host-runtime")
+            archive, manifest = module.assemble(binary_dir, root / "output", "0.1.0", "arm64-apple-macosx", "a" * 40, {"commands": ["issue-receipt"]}, "swift-test", "host-runtime", {"dependency/LICENSE": b"license notice"})
             result = json.loads(manifest.read_text())
             self.assertEqual(result["source_commit"], "a" * 40)
-            self.assertEqual(len(result["files"]), 2)
+            self.assertEqual(len(result["files"]), 3)
             self.assertIn("FeaturePassport_FeaturePassport.bundle/schema.json", {item["path"] for item in result["files"]})
+            self.assertEqual(archive.name, "feature-passport-0.1.0-arm64-apple-macosx.tar.gz")
+            self.assertEqual(result["license_notice_files"], ["dependency/LICENSE"])
+            self.assertIn("licenses/dependency/LICENSE", {item["path"] for item in result["files"]})
             self.assertEqual(result["archive_sha256"], module.sha256(archive))
             with self.assertRaises(FileExistsError):
                 module.assemble(binary_dir, root / "output", "0.1.0", "arm64-apple-macosx", "a" * 40, {}, "swift-test", "host-runtime")
