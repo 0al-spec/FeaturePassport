@@ -6,7 +6,13 @@ markdown-lint:
 	npx --yes markdownlint-cli2 --no-globs AGENTS.md README.md 'docs/**/*.md'
 
 swift-test:
-	swift test
+	swift build
+	FEATURE_PASSPORT_TEST_CLI="$$(swift build --show-bin-path)/feature-passport" swift test
+
+.PHONY: test-receipt-issuer
+test-receipt-issuer:
+	swift build
+	FEATURE_PASSPORT_TEST_CLI="$$(swift build --show-bin-path)/feature-passport" swift test --filter EvidenceReceiptIssuerTests
 
 test: swift-test markdown-lint validate-examples
 

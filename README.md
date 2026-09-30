@@ -11,7 +11,7 @@ artifacts, runtime probes, privacy boundaries, and accepted evidence receipts.
 The repository contains an experimental Swift validator for the passport
 document envelope and passport-local references, a read-only resolver for
 Swift declarations in pinned Git commits, a bounded matcher for normalized
-runtime observations, and a bounded verifier for signed observation receipts
+runtime observations, a bounded local issuer and verifier for signed observation receipts
 against a caller-supplied offline trust store. An experimental library issuer
 and verifier also sign and verify bounded local aggregate predicate decisions
 using caller-injected keys and explicit policy allowlists. Production receipt
@@ -67,8 +67,8 @@ See the [local aggregate claim evaluation profile](docs/contracts/local-aggregat
 `verify-decision` verifies a signed, input-bound decision and reruns the local
 aggregate evaluator at the signed time. The experimental library issuer needs
 an injected Ed25519 signer and explicit authorization for the exact claim
-policy digest; the repository contains no production issuer CLI or private
-key. `accepted` means only that the bounded local predicate passed. It does
+policy digest; the repository contains no aggregate-decision issuance CLI or private
+key store. The separate local observation issuer does not issue aggregate decisions. `accepted` means only that the bounded local predicate passed. It does
 not assert a feature outcome, delivery provenance, production deployment,
 `runtime_verified`, or replay protection. Its versioned signing encoding is
 not JCS. See the [signed aggregate claim decision profile](docs/contracts/signed-aggregate-claim-decision-v1.md).
@@ -107,3 +107,13 @@ behavior, test execution, or provider contracts. See the
 - [Pinned source resolver evidence](docs/evidence/source-resolver.md)
 
 Run `make test` to check the Swift package and repository documentation.
+
+## Bounded receipt issuance
+
+The provider-neutral `EvidenceReceiptIssuer` and local `issue-receipt` CLI now
+implement exact contract-match acceptance under explicit policy/key authorization.
+They do not infer runtime origin, production delivery or outcome claims. Key
+custody remains caller-owned. See [issuance v1](docs/contracts/observation-receipt-issuance-v1.md)
+for strict inputs, CLI exit codes and limits. `make test-receipt-issuer` exercises
+the actual CLI with ephemeral test keys. SpecGraph proposal 0047 owns coordination;
+FeaturePassport does not depend on SpecGraph.

@@ -1,12 +1,40 @@
+import Crypto
 import FeaturePassport
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
+private struct FileKeySigner: EvidenceReceiptSigner {
+    let key: Curve25519.Signing.PrivateKey
+    var publicKey: Data { key.publicKey.rawRepresentation }
+    func sign(message: Data) throws -> Data { try key.signature(for: message) }
+
+    init(path: String) throws {
+        guard path.hasPrefix("/") else { throw CLIInputError.signingKey }
+        let descriptor = open(path, O_RDONLY | O_NOFOLLOW)
+        guard descriptor >= 0 else { throw CLIInputError.signingKey }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
+              info.st_uid == getuid(), info.st_mode & 0o077 == 0, info.st_size == 32,
+              let bytes = try handle.read(upToCount: 33), bytes.count == 32 else {
+            throw CLIInputError.signingKey
+        }
+        key = try Curve25519.Signing.PrivateKey(rawRepresentation: bytes)
+    }
+}
+
 private func usage() -> Never {
-    fputs("Usage:\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport evaluate-claim <passport.json> <claim-policy.json> <bundle.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport verify-decision <passport.json> <claim-policy.json> <bundle.json> <decision.json> --trust-store <receipt-trust.json> --decision-trust <decision-trust.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
+    fputs("Usage:\n  feature-passport --help\n  feature-passport capabilities\n  feature-passport issue-receipt <passport.json> <observation.json> --policy <policy.json> --authorization <issuer-authorization.json> --request <request.json> --signing-key-file <absolute-path>\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport evaluate-claim <passport.json> <claim-policy.json> <bundle.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport verify-decision <passport.json> <claim-policy.json> <bundle.json> <decision.json> --trust-store <receipt-trust.json> --decision-trust <decision-trust.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
     exit(2)
 }
 
-private enum CLIInputError: Error { case sizeLimit }
+private enum CLIInputError: Error { case sizeLimit, signingKey, authorization }
 
 private func readBoundedFile(_ url: URL, maximumBytes: Int) throws -> Data {
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
@@ -19,11 +47,19 @@ private func readBoundedFile(_ url: URL, maximumBytes: Int) throws -> Data {
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
+if arguments == ["--help"] {
+    print("Feature Passport CLI: validate, evaluate-observation, issue-receipt, verify-receipt, evaluate-claim, verify-decision, resolve-sources, capabilities")
+    exit(0)
+}
+if arguments == ["capabilities"] {
+    print("{\"artifact_kind\":\"feature_passport_cli_capabilities\",\"schema_version\":1,\"receipt_issuance_profile\":\"exact_contract_match_v1\",\"commands\":[\"validate\",\"evaluate-observation\",\"issue-receipt\",\"verify-receipt\",\"evaluate-claim\",\"verify-decision\",\"resolve-sources\"]}")
+    exit(0)
+}
 guard arguments.count >= 2 else { usage() }
 
 do {
     let passportURL = URL(fileURLWithPath: arguments[1])
-    let data = ["evaluate-claim", "verify-decision"].contains(arguments[0])
+    let data = ["evaluate-claim", "verify-decision", "issue-receipt"].contains(arguments[0])
         ? try readBoundedFile(passportURL, maximumBytes: 10_000_000)
         : try Data(contentsOf: passportURL)
     switch arguments[0] {
@@ -65,6 +101,23 @@ do {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         print(String(decoding: try encoder.encode(evaluation), as: UTF8.self))
         if !evaluation.matched { exit(1) }
+    case "issue-receipt":
+        guard arguments.count == 11, arguments[3] == "--policy",
+              arguments[5] == "--authorization", arguments[7] == "--request",
+              arguments[9] == "--signing-key-file" else { usage() }
+        let observation = try readBoundedFile(URL(fileURLWithPath: arguments[2]), maximumBytes: 10_000_000)
+        let policy = try readBoundedFile(URL(fileURLWithPath: arguments[4]), maximumBytes: 256_000)
+        let authorization = try EvidenceReceiptTrustStore.decode(from:
+            readBoundedFile(URL(fileURLWithPath: arguments[6]), maximumBytes: 1_000_000))
+        guard authorization.trustedKeys.count == 1 else { throw CLIInputError.authorization }
+        let request = try EvidenceReceiptIssuanceRequest.decode(from:
+            readBoundedFile(URL(fileURLWithPath: arguments[8]), maximumBytes: 16_384))
+        let signer = try FileKeySigner(path: arguments[10])
+        let receipt = try EvidenceReceiptIssuer().issue(passportData: data,
+            observationData: observation, policyData: policy,
+            authorization: authorization.trustedKeys[0], request: request, signer: signer)
+        // Exact issued bytes, without adding a newline that changes their digest.
+        FileHandle.standardOutput.write(receipt)
     case "verify-receipt":
         guard arguments.count == 6 || arguments.count == 8,
               arguments[4] == "--trust-store",

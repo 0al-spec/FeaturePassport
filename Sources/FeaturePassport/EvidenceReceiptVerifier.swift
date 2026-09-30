@@ -321,26 +321,26 @@ enum ReceiptSigningProfile {
     }
 }
 
-private struct ReceiptDocument: Decodable {
-    struct Authority: Decodable { let id: String; let policyID: String; let policyVersion: String; let policyDigest: String
+struct ReceiptDocument: Codable {
+    struct Authority: Codable { let id: String; let policyID: String; let policyVersion: String; let policyDigest: String
         enum CodingKeys: String, CodingKey { case id; case policyID = "policy_id"; case policyVersion = "policy_version"; case policyDigest = "policy_digest" }
     }
-    struct Passport: Decodable { let featureID: String; let passportID: String; let version: String; let digest: String
+    struct Passport: Codable { let featureID: String; let passportID: String; let version: String; let digest: String
         enum CodingKeys: String, CodingKey { case featureID = "feature_id"; case passportID = "passport_id"; case version, digest }
     }
-    struct Probe: Decodable { let id: String; let eventName: String
+    struct Probe: Codable { let id: String; let eventName: String
         enum CodingKeys: String, CodingKey { case id; case eventName = "event_name" }
     }
-    struct Observation: Decodable { let eventID: String; let occurredAt: String
+    struct Observation: Codable { let eventID: String; let occurredAt: String
         enum CodingKeys: String, CodingKey { case eventID = "event_id"; case occurredAt = "occurred_at" }
     }
-    struct Hashing: Decodable { let canonicalization: String; let digestProfile: String; let eventHash: String; let receiptHash: String
+    struct Hashing: Codable { let canonicalization: String; let digestProfile: String; let eventHash: String; let receiptHash: String
         enum CodingKeys: String, CodingKey { case canonicalization; case digestProfile = "digest_profile"; case eventHash = "event_hash"; case receiptHash = "receipt_hash" }
     }
-    struct Signature: Decodable { let algorithm: String; let keyID: String; let value: String
+    struct Signature: Codable { let algorithm: String; let keyID: String; let value: String
         enum CodingKeys: String, CodingKey { case algorithm; case keyID = "key_id"; case value }
     }
-    struct Timestamps: Decodable { let acceptedAt: String; let validFrom: String; let validUntil: String
+    struct Timestamps: Codable { let acceptedAt: String; let validFrom: String; let validUntil: String
         enum CodingKeys: String, CodingKey { case acceptedAt = "accepted_at"; case validFrom = "valid_from"; case validUntil = "valid_until" }
     }
 
@@ -401,7 +401,7 @@ private struct ReceiptDocument: Decodable {
     }
 }
 
-private struct JSONClaim: Decodable {}
+struct JSONClaim: Codable {}
 
 private enum ReceiptShapeError: Error {
     case objectExpected(String)
