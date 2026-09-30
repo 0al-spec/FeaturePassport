@@ -30,7 +30,7 @@ private struct FileKeySigner: EvidenceReceiptSigner {
 }
 
 private func usage() -> Never {
-    fputs("Usage:\n  feature-passport --help\n  feature-passport capabilities\n  feature-passport issue-receipt <passport.json> <observation.json> --policy <policy.json> --authorization <issuer-authorization.json> --request <request.json> --signing-key-file <absolute-path>\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport evaluate-claim <passport.json> <claim-policy.json> <bundle.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport verify-decision <passport.json> <claim-policy.json> <bundle.json> <decision.json> --trust-store <receipt-trust.json> --decision-trust <decision-trust.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n", stderr)
+    FileHandle.standardError.write(Data("Usage:\n  feature-passport --help\n  feature-passport capabilities\n  feature-passport issue-receipt <passport.json> <observation.json> --policy <policy.json> --authorization <issuer-authorization.json> --request <request.json> --signing-key-file <absolute-path>\n  feature-passport validate <passport.json>\n  feature-passport evaluate-observation <passport.json> --passport-digest <digest> <observation.json>\n  feature-passport verify-receipt <passport.json> <observation.json> <receipt.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport evaluate-claim <passport.json> <claim-policy.json> <bundle.json> --trust-store <trust-store.json> [--at <RFC3339-UTC>]\n  feature-passport verify-decision <passport.json> <claim-policy.json> <bundle.json> <decision.json> --trust-store <receipt-trust.json> --decision-trust <decision-trust.json>\n  feature-passport resolve-sources <passport.json> --repository <name>=<absolute-checkout> [--repository ...]\n".utf8))
     exit(2)
 }
 
@@ -70,7 +70,7 @@ do {
             print("valid")
         } else {
             for issue in issues {
-                fputs("\(issue.code): \(issue.message)\n", stderr)
+                FileHandle.standardError.write(Data("\(issue.code): \(issue.message)\n".utf8))
             }
             exit(1)
         }
@@ -215,6 +215,6 @@ do {
         usage()
     }
 } catch {
-    fputs("feature_passport_error: \(error)\n", stderr)
+    FileHandle.standardError.write(Data("feature_passport_error: \(error)\n".utf8))
     exit(2)
 }
