@@ -35,6 +35,8 @@ jobs:
         run: |
           apt-get update && apt-get install --yes python3 git make
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Verify Swift 6.4 toolchain
+        run: swift --version | grep -E 'Swift version 6\.4([. ]|$)'
       - name: Test issuer and packaging
         run: |
           make swift-test SWIFT_FLAGS="--jobs 2"
@@ -53,6 +55,8 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Swift 6.4 toolchain
+        run: swift --version | grep -E 'Swift version 6\.4([. ]|$)'
       - name: Test issuer and packaging
         run: |
           make swift-test SWIFT_FLAGS="--jobs 2"
