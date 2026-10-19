@@ -22,14 +22,50 @@ A report has:
 - `profile: linked_delivery_signals_v1`;
 - `feature_passport`: feature ID, passport ID, version and exact-file SHA-256;
 - `source`: repository and full tested source revision;
-- `provenance`: provider, environment, observation time and run/attempt URL or
-  another provider-native execution reference;
+- `provenance`: report producer, report environment, projection time and
+  run/attempt URL or another provider-native execution reference;
 - `stages`: intent, spec, tests, deploy, runtime and acceptance records;
 - `trust_model: provider_reported` and `admission: not_evaluated`.
 
-Each stage has a `result`, a short `summary` and `evidence` references. A reference
-has a `uri`; use a repository-relative path, immutable source URL, artifact URL
-or provider run URL. Include a `sha256` when exact artifact bytes are available.
+Each stage has a `result`, a short `summary`, `evidence` references and its own
+`provenance` with two required members:
+
+- `observer`: provider, execution `environment`, execution `uri` and native
+  run/attempt identity when available. This identifies where the underlying
+  observation ran, which may differ from the report producer. Use `null` when
+  there is no observation or its execution context is unknown; such a stage
+  cannot claim `observed_success`.
+- `target`: the observed or intended target's `environment` and `uri`. Use an
+  explicit adapter-defined environment such as `repository`, `ci`, `staging`
+  or `production`; use `unknown` when it is not established. A missing stage's
+  target describes the intended scope, not proof of deployment there.
+
+The top-level report environment is not inherited by stages. An adapter must
+document how it establishes each target environment and preserve the original
+observer identity when projecting retained reports in another environment.
+For example, an HTTP check executed in CI against a production origin records:
+
+```json
+{
+  "provenance": {
+    "observer": {
+      "provider": "github_actions",
+      "environment": "ci",
+      "uri": "https://github.com/example/product/actions/runs/123",
+      "run_id": "123",
+      "run_attempt": "1"
+    },
+    "target": {
+      "environment": "production",
+      "uri": "https://product.example"
+    }
+  }
+}
+```
+
+An evidence reference has a `uri`; use a repository-relative path, immutable
+source URL, artifact URL or provider run URL. Include a `sha256` when exact
+artifact bytes are available.
 Adapters may add bounded details such as test obligations or a bundle digest.
 These details are adapter-owned and must be documented.
 
@@ -50,7 +86,8 @@ distinction when adapting this profile to signed contracts.
 4. Join stages only when their source and artifact identities agree. Report a
    missing link instead of borrowing a passing result from another revision.
 5. Preserve the difference between a test result, deployed bytes and execution
-   of a particular code path. Record where the observer actually executed.
+   of a particular code path. Record observer and target environments separately
+   in every stage's provenance; a CI execution is not a production execution.
 6. Retain the native reports alongside this projection, with a stated retention
    period. A report describes its recorded run, not current deployment health.
 
