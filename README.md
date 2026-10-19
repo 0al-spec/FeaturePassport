@@ -102,6 +102,7 @@ behavior, test execution, or provider contracts. See the
 
 ## Documents
 
+- [Linked delivery signals v1](docs/contracts/linked-delivery-signals-v1.md), a lightweight provider-reported integration profile
 - [Feature Passport Runtime Evidence Contract, RFC 0001 v0.3.0](docs/proposals/0001_feature_runtime_evidence_layer.md)
 - [Zeusus route composition: implementation-binding pilot](docs/examples/zeusus-route-composition.md)
 - [ADR 0001: Swift validation stack](docs/adr/0001-swift-validation-stack.md)
